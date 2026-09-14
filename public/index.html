@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Financial Bias Detector</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2314181D'/%3E%3Cpath d='M16 43 27 31l8 7 14-18' fill='none' stroke='%235A8DEE' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root { color-scheme: dark; --page:#0B0D10; --panel:#14181D; --border:#2A3038; --text:#F3F5F7; --muted:#9AA3AD; --accent:#5A8DEE; --bearish:#E36D6D; --bullish:#59B88A; --neutral:#A7AFB8; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--page); color:var(--text); font:16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    a { color:inherit; text-decoration-thickness:1px; text-underline-offset:3px; }
+    a:hover { color:var(--accent); }
+    :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    .shell { width:min(100% - 32px, 900px); margin:auto; }
+    header { padding:32px 0 20px; border-bottom:1px solid var(--border); }
+    h1 { margin:0; font-size:1.25rem; font-weight:650; letter-spacing:-.02em; }
+    .search-area { position:sticky; top:0; z-index:1; padding:16px 0; background:var(--page); border-bottom:1px solid var(--border); }
+    .search { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+    input[type="text"] { min-width:250px; flex:1 1 390px; padding:10px 12px; color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:6px; font:inherit; }
+    .filters { display:flex; flex:1 1 auto; flex-wrap:wrap; gap:12px; color:var(--muted); font-size:14px; }
+    .filters label { display:flex; gap:6px; align-items:center; white-space:nowrap; }
+    input[type="checkbox"] { accent-color:var(--accent); }
+    button { padding:10px 16px; color:var(--text); background:var(--accent); border:1px solid var(--accent); border-radius:6px; font-size:14px; font-weight:600; line-height:1.2; cursor:pointer; }
+    main { padding:24px 0 40px; }
+    .feed { display:grid; gap:14px; }
+    article { padding:16px; background:var(--panel); border:1px solid var(--border); border-radius:8px; }
+    .story { display:grid; grid-template-columns:128px 1fr; gap:16px; }
+    .thumbnail { width:128px; height:86px; object-fit:cover; background:#0f1216; border-radius:4px; }
+    .meta, .footnote { color:var(--muted); font-size:14px; }
+    h2 { margin:4px 0 8px; font-size:1.05rem; line-height:1.35; }
+    .summary { margin:0; }
+    .bias { margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+    .bias-heading { display:flex; justify-content:space-between; gap:12px; align-items:baseline; font-size:14px; }
+    .score { font-weight:700; }
+    .bullish .score { color:var(--bullish); } .bearish .score { color:var(--bearish); } .neutral .score { color:var(--neutral); }
+    .meter { position:relative; height:8px; margin:10px 0 5px; overflow:visible; border-radius:4px; background:var(--neutral); }
+    .meter::before, .meter::after { position:absolute; top:0; width:49.5%; height:100%; content:""; }
+    .meter::before { left:0; border-radius:4px 0 0 4px; background:var(--bearish); }
+    .meter::after { right:0; border-radius:0 4px 4px 0; background:var(--bullish); }
+    .marker { position:absolute; z-index:1; top:-4px; width:2px; height:16px; background:var(--text); transform:translateX(-50%); }
+    .scale { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }
+    .rationale { margin:10px 0 0; color:var(--muted); font-size:14px; }
+    .footnote { margin:20px 0 0; }
+    @media (max-width:600px) { .shell { width:min(100% - 24px, 900px); } header { padding-top:22px; } .search-area { position:static; } .search { align-items:stretch; } .filters { gap:8px 12px; } button { flex:0 0 auto; } .story { grid-template-columns:1fr; } .thumbnail { width:100%; height:160px; } }
+  </style>
+</head>
+<body>
+  <header class="shell"><h1>Financial Bias Detector</h1></header>
+  <section class="search-area" aria-label="Search controls"><div class="shell search">
+    <input type="text" aria-label="Statement link, company, or article" placeholder="Paste a statement link or search a company or article">
+    <div class="filters"><label><input type="checkbox"> Statement</label><label><input type="checkbox"> Company Name</label><label><input type="checkbox"> Article</label></div>
+    <button type="button">Search</button>
+  </div></section>
+  <main class="shell"><section class="feed" aria-label="September 2026 financial news snapshot">
+    <article class="bullish"><div class="story"><img class="thumbnail" src="https://wplginc-wplg-prod.web.arc-cdn.net/resizer/v2/https%3A%2F%2Fd2p7h58ldpiqzj.cloudfront.net%2F09-11-2026%2Ft_2b61dbe1c2ed48dda6ac3c844253935d_name_48318152548_hdtv.jpg?auth=2d5a6b266b9fe12c9f3a80caf80e7cb5bbc248dd2394503886b281054f8ae965&amp;width=700" alt="Trader on the New York Stock Exchange floor"><div><div class="meta">AP · September 11, 2026</div><h2><a href="https://apnews.com/article/8c3272812f5e9b9238c6a3301921c17a" target="_blank" rel="noopener noreferrer">US stocks jump after oil prices ease and inflation update comes in near expectations</a></h2><p class="summary">The rebound and a near-consensus inflation reading lead the framing, while still recognizing that elevated prices remain a pressure point.</p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">+42 Bullish</span></div><div class="meter"><span class="marker" style="left:71%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale">The emphasis falls on easing oil and a market rebound, tempered by continued inflation concern.</p></div></article>
+    <article class="bearish"><div class="story"><img class="thumbnail" src="https://images.axios.com/FlyKcXW0teLCiBnBnxLHfm-SdQU%3D/52x0/smart/2023/09/19/1695121452939.jpg" alt="Oil pump equipment"><div><div class="meta">Axios · September 11, 2026</div><h2><a href="https://www.axios.com/2026/09/11/bonds-oil-diesel-costs" target="_blank" rel="noopener noreferrer">Higher oil and rates are set to test the markets</a></h2><p class="summary">Oil, borrowing costs, and broader systemic risks are presented as compounding strain, with only a limited market bright spot.</p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">−68 Bearish</span></div><div class="meter"><span class="marker" style="left:16%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale">The story foregrounds a higher-cost world and what could break under it.</p></div></article>
+    <article class="bearish"><div class="story"><img class="thumbnail" src="https://s.yimg.com/lo/mysterio/api/13a715214a07b93593a583c7ef9e0220a0085125f96364ea506f11c7f7ad9532/lightyear_networkapi/resizefill_w1200%3Bquality_80%3Bformat_webp/https%3A%2F%2Fd29szjachogqwa.cloudfront.net%2Fimages%2F2026-09%2Ff12aff29-3ca3-4b85-a103-62b045d1832a" alt="Market data screens"><div><div class="meta">Yahoo Finance · September 9, 2026</div><h2><a href="https://finance.yahoo.com/markets/live/stock-market-today-wednesday-september-9-dow-sp-500-nasdaq-futures-080411279.html" target="_blank" rel="noopener noreferrer">Stock market today: Dow, S&amp;P 500, Nasdaq fall as Treasury yields climb, oil tops $100</a></h2><p class="summary">Falling major indexes and rate pressure anchor the coverage, even as it notes isolated company gains.</p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">−55 Bearish</span></div><div class="meter"><span class="marker" style="left:22.5%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale">Broad index losses and higher yields receive more weight than individual winners.</p></div></article>
+    <article class="bearish"><div class="story"><img class="thumbnail" src="https://fortune.com/img-assets/wp-content/uploads/2026/09/GettyImages-2292128386-e1789060321855.jpg?format=webp&amp;quality=75&amp;w=1440" alt="Federal Reserve chair Kevin Warsh"><div><div class="meta">Fortune · September 10, 2026</div><h2><a href="https://fortune.com/2026/09/10/10-year-treasury-yield-inflation-fed/" target="_blank" rel="noopener noreferrer">Inflation won’t die. Now the bond market is daring the Fed to do something about it</a></h2><p class="summary">Persistent inflation and central-bank credibility risks dominate, while retaining the article’s less severe alternative outlook.</p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">−74 Bearish</span></div><div class="meter"><span class="marker" style="left:13%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale">The framing emphasizes a sustained inflation problem and risks of lost policy credibility.</p></div></article>
+    <article class="bearish"><div class="story"><img class="thumbnail" src="https://cdn.mos.cms.futurecdn.net/wNSJvBEdqc6cBvPf4s9dNP-2121-80.jpg" alt="Stock market ticker board"><div><div class="meta">Kiplinger · September 10, 2026</div><h2><a href="https://www.kiplinger.com/investing/stocks/stocks-drop-as-treasury-yields-hit-new-highs-stock-market-today" target="_blank" rel="noopener noreferrer">Stocks Drop as Treasury Yields Hit New Highs: Stock Market Today</a></h2><p class="summary">The market decline and rate spike set the tone, while coverage also makes room for individual winners.</p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">−46 Bearish</span></div><div class="meter"><span class="marker" style="left:27%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale">Falling indexes and higher Treasury yields are emphasized over stock-specific upside.</p></div></article>
+  </section><p class="footnote">Summaries and directional scores are illustrative prototype content, not model output.</p></main>
+</body>
+</html>

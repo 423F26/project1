@@ -8,6 +8,7 @@ Before planning changes and again before every commit, all agents must read [PON
 | Understand the request path or change code | [Architecture](architecture.md) |
 | Run or modify the container deployment | [Operations](operations.md) |
 | Record or release a change | [Changelog](../CHANGELOG.md) |
+| Plan or record sprint work | [Agile documentation](agile/README.md) |
 | Rules for contributors and agents | [Repository guide](../AGENTS.md) |
 
 ## Release rule

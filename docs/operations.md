@@ -4,9 +4,11 @@
 
 Install Node.js 22+ (with npm) and OpenSSL, then run `npm run dev` from the repository directory. No `npm install` or `.env` setup is needed; the project has no dependencies.
 
-Open https://localhost:8443 and accept the self-signed development certificate warning. The server binds only to `127.0.0.1` and restarts when its JavaScript files change. Stop it with Ctrl+C. To check the endpoint from a terminal, run `curl -k https://localhost:8443/`; expect `Hello, world!`.
+Open https://localhost:8443 and accept the self-signed development certificate warning. The server binds only to `127.0.0.1` and restarts when its JavaScript files change. Stop it with Ctrl+C. To check the endpoint from a terminal, run `curl -k https://localhost:8443/`; expect the Financial Bias Detector HTML document.
 
 The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
+
+The interface is a static September 2026 snapshot. Its Search button and three checkboxes are intentionally inert, and its five remote HTTPS thumbnails are requested by the browser directly from publisher CDNs; the application has no backend fetches or additional routes.
 
 ## Compose deployment
 
