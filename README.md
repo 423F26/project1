@@ -11,7 +11,7 @@
 
 ## Navigation
 
-[Architecture](docs/architecture.md) · [Operations](docs/operations.md) · [Agile Documentation](docs/agile/README.md) · [Change Log](CHANGELOG.md) · [Agents](AGENTS.md)
+[Architecture](docs/architecture.md) · [Operations](docs/operations.md) · [Agile Documentation](docs/agile/README.md) · [Change Log](CHANGELOG.md) · [Agents](docs/agents/AGENTS_MUSTREAD.md)
 
 ## Local Deployment & Security
 
