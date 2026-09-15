@@ -1,8 +1,8 @@
-# Financial Bias Detector
+# Unnamed Financial Bias Detector 
 
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
-[Live Webapp](https://esof423.csit.help)
+[Webapp Link](https://esof423.csit.help)
 
 ## Project Authors
 
