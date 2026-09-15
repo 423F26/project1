@@ -2,12 +2,12 @@
 
 ## Goal
 
-Provide an accessible, static Financial Bias Detector prototype while preserving the hardened single-route service.
+need to see my paper lol
 
 ## Work
 
-| ID | Backlog item | Work | Status | Note |
+| Task | Sprint | Product work | Status | Maintainer
 | --- | --- | --- | --- | --- |
-| S1-01 | PB-001 | Build the static interface and fixed news feed | In Progress | Implementation is in the working tree. |
-| S1-02 | PB-002 | Serve the HTML document with restrictive security headers | In Progress | Implementation is in the working tree. |
-| S1-03 | PB-003 | Run available checks and update project documentation | In Progress | Runtime checks await Node/npm and Docker availability. |
+| #1 | S1 | Basic webpage and repo setup | Done | chropic
+| #2 | S1 | Actual web interface and demo features | In Progress | chropic
+| #3 | S1 | Find client and update README | In Progress |
