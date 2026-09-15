@@ -1,6 +1,6 @@
 # Repository guide
 
-Before planning any changes, read [docs/PONYTAIL.md](docs/PONYTAIL.md) in full, then [docs/README.md](docs/README.md) for the architecture, Docker operations, and release history. Apply the Ponytail philosophy to the work: understand the problem and affected flow, reuse what exists, and make the smallest correct change.
+Before planning any changes, read [docs/PONYTAIL.md](docs/PONYTAIL.md) in full, then [../OPERATIONS.md](../OPERATIONS.md) for the architecture, Docker operations, and release history. Apply the Ponytail philosophy to the work: understand the problem and affected flow, reuse what exists, and make the smallest correct change.
 
 Before every commit, read [docs/PONYTAIL.md](docs/PONYTAIL.md) again and check the proposed diff against it and the requirements below. These reading steps are mandatory for all agents, including documentation-only work. Preserve the philosophy file verbatim; keep repository-specific guidance here and in the other docs.
 
@@ -9,7 +9,7 @@ Before every commit, read [docs/PONYTAIL.md](docs/PONYTAIL.md) again and check t
 1. Keep the service intentionally small: one `GET /` endpoint that returns the static HTML document; validation errors remain plaintext. Do not add routes, dependencies, state, or external services without explicit approval.
 2. Update the relevant file in `docs/` when behavior, security, deployment, configuration, or structure changes.
 3. Add a concise entry under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
-4. Before a release, move `Unreleased` entries to a dated version section and increment `package.json` using the policy in [docs/README.md](docs/README.md).
+4. Before a release, move `Unreleased` entries to a dated version section and increment `package.json` using the policy in [../OPERATIONS.md](../OPERATIONS.md).
 5. Run `npm test` and `git diff --check`. Run `docker compose config` when Docker is available and Compose changed.
 
 ## Sprint documentation
