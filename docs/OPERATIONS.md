@@ -42,3 +42,21 @@ docker compose up --build -d
 | Restart | `unless-stopped` |
 
 Do not change the port mapping to `0.0.0.0` unless a firewall limits inbound traffic to Cloudflare IP ranges. Cloudflare Access is an edge control and cannot protect an origin that is independently reachable.
+
+## Release rule
+
+`package.json` is the version source of truth. Use Semantic Versioning:
+
+- **Patch** (`0.0.1` → `0.0.2`): documentation, fixes, or hardening with no interface change.
+- **Minor** (`0.0.1` → `0.1.0`): backward-compatible configuration or behavior additions. Before `1.0.0`, use a minor increment for incompatible changes as well.
+- **Major** (`0.1.0` → `1.0.0`): the first stable release, after the endpoint, deployment, configuration, and security contract are established.
+
+Every change belongs under `Unreleased` in `CHANGELOG.md`. At release, move those entries into a dated version section and update `package.json` in the same change.
+
+## Fast checks
+
+```powershell
+npm test
+git diff --check
+docker compose config  # when Docker is installed
+```
