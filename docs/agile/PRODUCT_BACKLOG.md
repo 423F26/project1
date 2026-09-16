@@ -1,9 +1,11 @@
 # Product Backlog
 
-The backlog stays ordered across the project. Update its status and assigned sprint whenever an agent records related work.
+The backlog needs to stay ordered across the project. Update its status and other info whenever there is work done.
 
 | Task | Sprint | Product work | Status | Maintainer
 | --- | --- | --- | --- | --- |
 | #1 | S1 | Basic webpage and repo setup | Done | chropic
 | #2 | S1 | Actual web interface and demo features | In Progress | chropic
 | #3 | S1 | Find client and update README | In Progress |
+| #4 | S1 | RSS functionality | Backlog |
+| ? | ? | German language toggle | Backlog |
