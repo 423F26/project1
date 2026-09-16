@@ -7,5 +7,5 @@ The backlog needs to stay ordered across the project. Update its status and othe
 | #1 | S1 | Basic webpage and repo setup | Done | chropic
 | #2 | S1 | Actual web interface and demo features | In Progress | chropic
 | #3 | S1 | Find client and update README | In Progress |
-| #4 | S1 | RSS functionality | Backlog |
+| #4 | S1 | RSS functionality | In Progress |
 | ? | ? | German language toggle | Backlog |

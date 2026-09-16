@@ -8,7 +8,7 @@ Open https://localhost:8443 and accept the self-signed development certificate w
 
 The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
 
-The interface is a static September 2026 snapshot. Its Search button and three checkboxes are intentionally inert, and its five remote HTTPS thumbnails are requested by the browser directly from publisher CDNs; the application has no backend fetches or additional routes.
+The interface is a static September 2026 snapshot. Its Search button, three checkboxes, and RSS source manager are intentionally inert, and its five remote HTTPS thumbnails are requested by the browser directly from publisher CDNs; the application has no backend fetches or additional routes. Live RSS syncing is deferred.
 
 ## Compose deployment
 

@@ -34,8 +34,10 @@ test('only serves the configured HTML root endpoint', () => {
   assert.equal(success.headers['content-type'], 'text/html; charset=utf-8');
   assert.match(success.headers['content-security-policy'], /script-src 'none'/);
   assert.equal(success.headers['referrer-policy'], 'no-referrer');
-  for (const value of ['Financial Bias Detector', 'Paste a statement link or search a company or article', 'type="button"']) assert.match(success.body, new RegExp(value));
+  for (const value of ['Untitled', 'Paste a statement link or search a company or article', 'RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Coming soon']) assert.match(success.body, new RegExp(value));
   assert.equal((success.body.match(/type="checkbox"/g) ?? []).length, 3);
+  assert.equal((success.body.match(/type="button"/g) ?? []).length, 2);
+  assert.equal((success.body.match(/<input[^>]*type="url"/g) ?? []).length, 1);
   assert.equal((success.body.match(/<article/g) ?? []).length, 5);
   assert.equal((success.body.match(/class="meter"/g) ?? []).length, 5);
   assert.equal((success.body.match(/target="_blank"/g) ?? []).length, 5);

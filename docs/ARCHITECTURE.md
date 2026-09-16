@@ -41,7 +41,7 @@ TLS 1.2+ request
 
 - TLS key and certificate paths are mandatory at startup.
 - `ALLOWED_HOSTS` is mandatory and exact-match only.
-- No cookies, CORS, JavaScript, request parsing, storage, logging of requests, or dependencies exist. The root document has inert native controls and cannot submit a form or make a request.
+- No cookies, CORS, JavaScript, request parsing, storage, logging of requests, or dependencies exist. The root document has inert native controls, including its RSS source manager, and cannot submit a form or make a request. RSS syncing is deferred.
 - The service rejects bodies and transfer encodings, caps header size/count and keep-alive work, and returns plaintext errors. Its HTML response has a restrictive CSP, HSTS, `Referrer-Policy: no-referrer`, and may load only HTTPS publisher thumbnails.
 
 Preserve these invariants unless the change is explicitly approved and documented in this file and `CHANGELOG.md`.
