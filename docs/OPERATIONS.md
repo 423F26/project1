@@ -4,9 +4,11 @@
 
 Install Node.js 22+ (with npm) and OpenSSL, then run `npm run dev` from the repository directory. No `npm install` or `.env` setup is needed; the project has no dependencies.
 
-Open https://localhost:8443 and accept the self-signed development certificate warning. The server binds only to `127.0.0.1` and restarts when its JavaScript files change. Stop it with Ctrl+C. To check the endpoint from a terminal, run `curl -k https://localhost:8443/`; expect `Hello, world!`.
+Open https://localhost:8443 and accept the self-signed development certificate warning. The server binds only to `127.0.0.1` and restarts when its JavaScript files change. Stop it with Ctrl+C. To check the endpoint from a terminal, run `curl -k https://localhost:8443/`; expect the Financial Bias Detector HTML document.
 
 The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
+
+The interface is a static September 2026 snapshot. Its Search button, three checkboxes, and RSS source manager are intentionally inert, and its five remote HTTPS thumbnails are requested by the browser directly from publisher CDNs; the application has no backend fetches or additional routes. Live RSS syncing is deferred.
 
 ## Compose deployment
 
@@ -40,3 +42,21 @@ docker compose up --build -d
 | Restart | `unless-stopped` |
 
 Do not change the port mapping to `0.0.0.0` unless a firewall limits inbound traffic to Cloudflare IP ranges. Cloudflare Access is an edge control and cannot protect an origin that is independently reachable.
+
+## Release rule
+
+`package.json` is the version source of truth. Use Semantic Versioning:
+
+- **Patch** (`0.0.1` → `0.0.2`): documentation, fixes, or hardening with no interface change.
+- **Minor** (`0.0.1` → `0.1.0`): backward-compatible configuration or behavior additions. Before `1.0.0`, use a minor increment for incompatible changes as well.
+- **Major** (`0.1.0` → `1.0.0`): the first stable release, after the endpoint, deployment, configuration, and security contract are established.
+
+Every change belongs under `Unreleased` in `CHANGELOG.md`. At release, move those entries into a dated version section and update `package.json` in the same change.
+
+## Fast checks
+
+```powershell
+npm test
+git diff --check
+docker compose config  # when Docker is installed
+```

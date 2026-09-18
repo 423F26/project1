@@ -1,8 +1,8 @@
-# Financial Bias Detector
+# Unnamed Financial Bias Detector 
 
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
-[Live Webapp](https://esof423.csit.help) · login with GitHub or associated email
+[Webapp Link](https://esof423.csit.help)
 
 ## Project Authors
 
@@ -11,11 +11,15 @@
 
 ## Navigation
 
-[Architecture](docs/architecture.md) · [Operations](docs/operations.md) · [Change Log](CHANGELOG.md) · [Agent Guide](AGENTS.md)
+[Agile Documentation](docs/agile/README.md)
 
-## Local Deployment
+[Operations](docs/OPERATIONS.md)
 
-`npm run dev`. Open https://localhost:8443 and accept the local certificate warning. See [Operations](docs/operations.md) for details.
+[Agents](docs/agents/AGENTS_MUSTREAD.md)
+
+## Local Deployment & Security
+
+`npm run dev`. Open https://localhost:8443. See [Operations](docs/operations.md) for details.
 
 With Docker Compose, HTTPS is published at `127.0.0.1:19283`.
 

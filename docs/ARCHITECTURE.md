@@ -5,18 +5,19 @@ All agents must read [PONYTAIL.md](PONYTAIL.md) before planning changes and agai
 ## Shape
 
 ```text
-Internet → Cloudflare Access → Cloudflare Tunnel → 127.0.0.1:19283 → Compose container → server.js
+Internet → Cloudflare Access → Cloudflare Tunnel → 127.0.0.1:19283 → Compose container → src/server.js
 ```
 
-The service is deliberately stateless. Its only success response is `Hello, world!\n` as `text/plain` for `GET /`.
+The service is deliberately stateless. Its only success response is the self-contained Financial Bias Detector HTML document for `GET /`; all validation errors remain plaintext.
 
 ## Landmarks
 
 | Location | Purpose | Change carefully when |
 | --- | --- | --- |
 | [docs/PONYTAIL.md](PONYTAIL.md) | Verbatim development philosophy; required reading before planning and committing | Preserve unchanged; put repository-specific guidance in [AGENTS.md](../AGENTS.md) |
-| [server.js](../server.js) | HTTPS server, validation, headers, timeouts, rate limiting | Changing request behavior or security controls |
-| [dev.js](../dev.js) | Local development entry point with automatic certificates and loopback binding | Changing developer setup; reuses `createServer` |
+| [src/server.js](../src/server.js) | HTTPS server, validation, headers, timeouts, rate limiting | Changing request behavior or security controls |
+| [public/index.html](../public/index.html) | Static interface, inline styles, fixed September 2026 feed fixtures | Changing the UI or fixed prototype content |
+| [src/dev.js](../src/dev.js) | Local development entry point with automatic certificates and loopback binding | Changing developer setup; reuses `createServer` |
 | [compose.yaml](../compose.yaml) | Local-only port publishing, certificate mount, runtime restrictions | Changing deployment or resource limits |
 | [Dockerfile](../Dockerfile) | Minimal unprivileged Node runtime image | Changing the runtime or build inputs |
 | [package.json](../package.json) | Commands and release version | Releasing or adding a development command |
@@ -31,16 +32,16 @@ TLS 1.2+ request
   ├─ GET?                  no → 405
   ├─ exact path /?         no → 404
   ├─ empty body?           no → 413
-  └─ return plaintext      yes → 200
+  └─ return HTML           yes → 200
 ```
 
-`server.js` does not trust forwarded client-IP headers. Its local rate limit uses the direct socket address, which is intentional: Cloudflare Access and the tunnel/firewall enforce the real network boundary.
+`src/server.js` does not trust forwarded client-IP headers. Its local rate limit uses the direct socket address, which is intentional: Cloudflare Access and the tunnel/firewall enforce the real network boundary.
 
 ## Security invariants
 
 - TLS key and certificate paths are mandatory at startup.
 - `ALLOWED_HOSTS` is mandatory and exact-match only.
-- No cookies, CORS, HTML, JavaScript, request parsing, storage, logging of requests, or dependencies exist.
-- The service rejects bodies and transfer encodings, caps header size/count and keep-alive work, and returns only plaintext errors.
+- No cookies, CORS, JavaScript, request parsing, storage, logging of requests, or dependencies exist. The root document has inert native controls, including its RSS source manager, and cannot submit a form or make a request. RSS syncing is deferred.
+- The service rejects bodies and transfer encodings, caps header size/count and keep-alive work, and returns plaintext errors. Its HTML response has a restrictive CSP, HSTS, `Referrer-Policy: no-referrer`, and may load only HTTPS publisher thumbnails.
 
 Preserve these invariants unless the change is explicitly approved and documented in this file and `CHANGELOG.md`.

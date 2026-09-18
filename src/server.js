@@ -6,7 +6,7 @@ const https = require('node:https');
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
   'strict-transport-security': 'max-age=31536000; includeSubDomains',
-  'x-content-type-options': 'nosniff'
+  'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer'
 };
 
 function hosts(value) {
@@ -15,8 +15,8 @@ function hosts(value) {
   return result;
 }
 
-function reply(response, status, body = '') {
-  response.writeHead(status, { ...headers, 'content-length': Buffer.byteLength(body) });
+function reply(response, status, body = '', extraHeaders = {}) {
+  response.writeHead(status, { ...headers, ...extraHeaders, 'content-length': Buffer.byteLength(body) });
   response.end(body);
 }
 
@@ -44,7 +44,10 @@ function createServer(options) {
       return reply(response, 413, 'Request body not accepted.\n');
     }
     request.on('data', () => request.destroy());
-    reply(response, 200, options.text);
+    reply(response, 200, options.html, {
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+    });
   });
 
   Object.assign(server, { headersTimeout: 5_000, requestTimeout: 5_000, keepAliveTimeout: 2_000, maxRequestsPerSocket: 50, maxHeadersCount: 32 });
@@ -59,7 +62,7 @@ if (require.main === module) {
   if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isInteger(rateLimit) || rateLimit < 1) throw new Error('PORT and RATE_LIMIT must be positive integers');
   const key = process.env.TLS_KEY_PATH, cert = process.env.TLS_CERT_PATH;
   if (!key || !cert) throw new Error('TLS_KEY_PATH and TLS_CERT_PATH are required');
-  const server = createServer({ tls: { key: readFileSync(key), cert: readFileSync(cert), minVersion: 'TLSv1.2' }, allowedHosts, rateLimit, text: 'Hello, world!\n' });
+  const server = createServer({ tls: { key: readFileSync(key), cert: readFileSync(cert), minVersion: 'TLSv1.2' }, allowedHosts, rateLimit, html: readFileSync(`${__dirname}/../public/index.html`, 'utf8') });
   server.listen(port, '0.0.0.0', () => console.log(`Listening on https://0.0.0.0:${port}`));
 }
 
