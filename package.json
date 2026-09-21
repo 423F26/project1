@@ -2,7 +2,7 @@
   "name": "plaintext-https-service",
   "version": "0.0.1",
   "private": true,
-  "description": "Minimal hardened HTTPS plaintext service",
+  "description": "Untitled Financial Bias Detector",
   "scripts": {
     "dev": "node --watch src/dev.js",
     "start": "node src/server.js",
