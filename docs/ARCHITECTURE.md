@@ -1,6 +1,6 @@
 # Architecture
 
-All agents must read [PONYTAIL.md](PONYTAIL.md) before planning changes and again before every commit. Use its philosophy when making architecture decisions: understand the affected flow, reuse existing capabilities, and choose the smallest correct change. See the [Repository guide](../AGENTS.md) for the required workflow.
+All agents must read [agents/PONYTAIL.md](agents/PONYTAIL.md) before planning changes and again before every commit. Use its philosophy when making architecture decisions: understand the affected flow, reuse existing capabilities, and choose the smallest correct change. See the [Repository guide](../AGENTS.md) for the required workflow.
 
 ## Shape
 
@@ -14,7 +14,7 @@ The service is deliberately stateless. Its only success response is the self-con
 
 | Location | Purpose | Change carefully when |
 | --- | --- | --- |
-| [docs/PONYTAIL.md](PONYTAIL.md) | Verbatim development philosophy; required reading before planning and committing | Preserve unchanged; put repository-specific guidance in [AGENTS.md](../AGENTS.md) |
+| [docs/agents/PONYTAIL.md](agents/PONYTAIL.md) | Verbatim development philosophy; required reading before planning and committing | Preserve unchanged; put repository-specific guidance in [AGENTS.md](../AGENTS.md) |
 | [src/server.js](../src/server.js) | HTTPS server, validation, headers, timeouts, rate limiting | Changing request behavior or security controls |
 | [public/index.html](../public/index.html) | Static interface, inline styles, fixed September 2026 feed fixtures | Changing the UI or fixed prototype content |
 | [src/dev.js](../src/dev.js) | Local development entry point with automatic certificates and loopback binding | Changing developer setup; reuses `createServer` |
