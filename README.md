@@ -15,7 +15,7 @@
 
 [Operations](docs/OPERATIONS.md)
 
-[Agents](docs/agents/AGENTS_MUSTREAD.md)
+[Agents](AGENTS.md)
 
 ## Local Deployment & Security
 
