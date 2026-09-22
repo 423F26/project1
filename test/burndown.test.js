@@ -48,8 +48,9 @@ test('generates only completed-work sprints with advisor-facing labels and notes
   assert.match(svg, /#1/);
   assert.match(svg, /Remaining tasks/);
   assert.match(svg, /Time period:/);
-  assert.match(svg, /Advisor notes/);
+  assert.doesNotMatch(svg, /Advisor notes|Remaining work =|Scope:/);
   assert.match(svg, /Flat periods:/);
+  assert.match(svg, /#1 · 2026-09-03/);
   assert.match(svg, /polyline/);
 }));
 
