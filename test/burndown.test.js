@@ -40,25 +40,27 @@ function withFixture(options, callback) {
   try { callback(root); } finally { rmSync(root, { recursive: true, force: true }); }
 }
 
-test('generates a multi-sprint SVG with completion steps and carryover', () => withFixture({}, (root) => {
+test('generates only completed-work sprints with advisor-facing labels and notes', () => withFixture({}, (root) => {
   const output = generate(root);
   const svg = readFileSync(output, 'utf8');
   assert.match(svg, /Sprint 1/);
-  assert.match(svg, /Sprint 2/);
+  assert.doesNotMatch(svg, /Sprint 2/);
   assert.match(svg, /#1/);
-  assert.match(svg, /No completed tasks recorded/);
+  assert.match(svg, /Remaining tasks/);
+  assert.match(svg, /Time period:/);
+  assert.doesNotMatch(svg, /Advisor notes|Remaining work =|Scope:/);
+  assert.match(svg, /Flat periods:/);
+  assert.match(svg, /#1 · 2026-09-03/);
   assert.match(svg, /polyline/);
 }));
 
-test('accepts an empty sprint backlog and renders its incomplete state', () => withFixture({
+test('keeps an empty sprint out of the chart', () => withFixture({
   product: ['| Task | Sprint | Product work | Status | Maintainer |', '| --- | --- | --- | --- | --- |', '| #1 | S1 | Done work | Done |  |'].join('\n'),
   sprint1: ['| Task | Sprint | Product work | Status | Maintainer | Completed |', '| --- | --- | --- | --- | --- | --- |', '| #1 | S1 | Done work | Done |  | 2026-09-03 |'].join('\n'),
   sprint2: ''
 }, (root) => {
   const svg = readFileSync(generate(root), 'utf8');
-  assert.match(svg, /Sprint 2/);
-  assert.match(svg, /0 tasks/);
-  assert.match(svg, /No completed tasks recorded/);
+  assert.doesNotMatch(svg, /Sprint 2/);
 }));
 
 test('rejects malformed completion dates', () => withFixture({ sprint2: [
@@ -97,5 +99,20 @@ test('rejects unknown, duplicate, and missing assigned tasks', () => {
     '| Task | Sprint | Product work | Status | Maintainer | Completed |',
     '| --- | --- | --- | --- | --- | --- |',
     '| #1 | S2 | Carryover | In Progress |  |  |'
-  ].join('\n') }, (root) => assert.throws(() => loadAgile(join(root, 'docs', 'agile')), /missing product-assigned #2/));
+  ].join('\n') }, (root) => assert.throws(() => loadAgile(join(root, 'docs', 'agile')), /#2: missing product-assigned sprint entry/));
+});
+
+test('rejects invalid added dates and completion before addition', () => {
+  withFixture({ sprint2: [
+    '| Task | Sprint | Product work | Status | Maintainer | Added | Completed |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| #1 | S2 | Carryover | In Progress |  | 2026-09-99 |  |',
+    '| #2 | S2 | New work | Backlog |  |  |  |'
+  ].join('\n') }, (root) => assert.throws(() => loadAgile(join(root, 'docs', 'agile')), /added: invalid date/));
+  withFixture({ sprint2: [
+    '| Task | Sprint | Product work | Status | Maintainer | Added | Completed |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| #1 | S2 | Carryover | In Progress |  | 2026-09-07 | 2026-09-06 |',
+    '| #2 | S2 | New work | Backlog |  |  |  |'
+  ].join('\n') }, (root) => assert.throws(() => loadAgile(join(root, 'docs', 'agile')), /completion precedes its added date/));
 });
