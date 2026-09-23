@@ -2,6 +2,6 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | #3 | S2 | Find client and update README | Clients found | chropic | 2026-09-17 |  |
 | #4 | S2 | RSS functionality - rescope (backend, not user-facing), find sources | In Progress (Demo implemented S1) |  | 2026-09-23 |  |
-| #5 | S2 | German language toggle | Backlog |  | 2026-09-23 | chropic |
+| #5 | S2 | German language toggle | Backlog |  | 2026-09-23 | |
 | #6 | S2 | Search - add database for queries, parse URLs | Backlog | | 2026-09-23 | |
 | #7 | S2 | Update burndown script | Backlog | | 2026-09-23 | |
