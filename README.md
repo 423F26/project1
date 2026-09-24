@@ -15,7 +15,7 @@
 
 [Operations](docs/OPERATIONS.md)
 
-[Agents](AGENTS.md)
+[Agents](docs/agents/AGENTS.md)
 
 ## Local Deployment & Security
 
