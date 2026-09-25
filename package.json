@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "node --watch src/dev.js",
     "start": "node src/server.js",
-    "agile:burndown": "node scripts/generate-burndown.js",
     "test": "node --test"
   },
   "engines": {

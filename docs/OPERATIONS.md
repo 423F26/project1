@@ -8,7 +8,7 @@ Open https://localhost:8443 and accept the self-signed development certificate w
 
 The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
 
-The interface is a static September 2026 snapshot. Its Search button, three checkboxes, and RSS source manager are intentionally inert, and its five remote HTTPS thumbnails are requested by the browser directly from publisher CDNs; the application has no backend fetches or additional routes. Live RSS syncing is deferred.
+The interface is a static filing-search prototype above the September 2026 news snapshot and RSS source manager. The U.S./Germany choice is visual only; U.S. search fields are shown. The Search button is inert, with no filing retrieval, analysis, storage, or backend fetch connected. The news cards contain fictional demo scores. Live filing search and RSS syncing are deferred.
 
 ## Compose deployment
 

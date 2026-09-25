@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ESOF423 | GROUP #1 </title>
+  <title>Financial Statement Review | ESOF423 Group #1</title>
   <style>
     body { margin: 0; padding: 16px; background: #000; color: #eee; font: 16px Arial, sans-serif; }
     .shell { max-width: 850px; margin: auto; }
@@ -38,16 +38,46 @@
     .rss-panel li { margin-bottom: 6px; }
     .rss-panel input[type="url"] { box-sizing: border-box; width: 100%; margin: 6px 0; padding: 5px; border: 1px solid #666; background: #111; color: #eee; }
     .rss-status { margin: 10px 0 0; color: #aaa; font-size: 13px; }
+
+    .search-shell { max-width: 1086px; margin: auto; }
+    .search-card { padding: 14px; border: 1px solid #444; border-radius: 10px; background: #111; }
+    .search-heading { margin: 0 0 10px; color: #ddd; font-size: 14px; }
+    .market { display: flex; width: fit-content; gap: 4px; margin: 0 0 15px; padding: 4px; border: 0; border-radius: 8px; background: #1b1b1b; }
+    .market-option { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid transparent; border-radius: 6px; color: #aaa; font-size: 13px; font-weight: 600; }
+    .market .selected { border-color: #555; background: #292929; color: #fff; }
+    .market .coming-soon { color: #aaa; cursor: default; }
+    .search-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(160px, .85fr) minmax(135px, .7fr); gap: 12px; align-items: end; }
+    .search-field { min-width: 0; }
+    .search-field label { display: block; margin-bottom: 6px; color: #ccc; font-size: 12px; font-weight: 600; }
+    .search-field input, .search-field select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid #555; border-radius: 6px; background: #090909; color: #eee; font: inherit; font-size: 13px; }
+    .search-field input::placeholder { color: #888; }
+    .search-field input:focus, .search-field select:focus { outline: 2px solid #528ac8; outline-offset: 1px; }
+    .topic-field { grid-column: 1 / -1; margin-top: 0; }
+    .us-fields { display: grid; }
+    .search-actions { display: flex; align-items: center; gap: 12px; margin-top: 15px; }
+    .search-actions button { min-height: 38px; padding: 0 15px; border: 1px solid #4b78aa; border-radius: 6px; background: #214f7d; color: #fff; font-size: 13px; font-weight: 600; }
+    .search-note { margin: 0; color: #999; font-size: 11px; }
+    @media (max-width: 700px) { .search-grid { grid-template-columns: 1fr 1fr; } .search-grid .company-field, .search-grid .topic-field { grid-column: 1 / -1; } }
+      @media (max-width: 440px) { .search-grid { grid-template-columns: 1fr; } .search-grid .company-field, .search-grid .topic-field { grid-column: auto; } .search-actions { align-items: flex-start; flex-direction: column; } .market { width: 100%; } .market-option { flex: 1; justify-content: center; padding-inline: 8px; } }
     @media (max-width: 600px) { body { padding: 10px; } .layout { display: block; } .rss-panel { margin-top: 16px; } .story { display: block; } .thumbnail { width: 100%; height: 140px; margin-bottom: 6px; } input[type="text"] { width: 100%; } }
   </style>
 </head>
 <body>
   <header class="shell"><h1>Untitled</h1></header>
-  <section class="search-area" aria-label="Search controls"><div class="shell search">
-    <input type="text" aria-label="Statement link, company, or article" placeholder="Paste a statement link or search a company or article">
-    <div class="filters"><label><input type="checkbox"> Statement</label><label><input type="checkbox"> Company Name</label><label><input type="checkbox"> Article</label></div>
-    <button type="button">Search</button>
-  </div></section>
+  <section class="search-area" aria-label="Search controls"><div class="search-shell"><div class="search-card">
+    <h2 class="search-heading">Choose a filing market</h2>
+    <fieldset class="market" aria-label="Filing market">
+      <span class="market-option selected" aria-current="true"><span aria-hidden="true">🇺🇸</span> United States</span>
+      <span class="market-option coming-soon" aria-disabled="true"><span aria-hidden="true">🇩🇪</span> Germany</span>
+    </fieldset>
+    <div class="market-fields us-fields search-grid">
+      <div class="search-field company-field"><label for="us-company">Company, ticker, or SEC filing link</label><input id="us-company" type="search" placeholder="e.g., PepsiCo or PEP"></div>
+      <div class="search-field"><label for="us-type">Filing type</label><select id="us-type"><option>Annual report (10-K)</option><option>Quarterly report (10-Q)</option><option>Any filing</option></select></div>
+      <div class="search-field"><label for="us-period">Period</label><select id="us-period"><option>Any year</option><option>2025</option><option>2024</option><option>2023</option></select></div>
+      <div class="search-field topic-field"><label for="us-topic">Focus on a topic (optional)</label><select id="us-topic"><option>All topics</option><option>Revenue recognition</option><option>Reserves and estimates</option><option>Depreciation and useful lives</option><option>Non-GAAP measures</option></select></div>
+    </div>
+    <div class="search-actions"><button type="button">⌕ &nbsp; Find filings</button><p class="search-note">Search the selected market’s filing sources. Live filing lookup is not connected yet.</p></div>
+  </div></div></section>
   <main class="layout"><div><section class="feed" aria-label="September 2026 financial news snapshot">
     <article class="bullish"><div class="story"><img class="thumbnail" src="https://wplginc-wplg-prod.web.arc-cdn.net/resizer/v2/https%3A%2F%2Fd2p7h58ldpiqzj.cloudfront.net%2F09-11-2026%2Ft_2b61dbe1c2ed48dda6ac3c844253935d_name_48318152548_hdtv.jpg?auth=2d5a6b266b9fe12c9f3a80caf80e7cb5bbc248dd2394503886b281054f8ae965&amp;width=700" alt="Trader on the New York Stock Exchange floor"><div><div class="meta">AP · September 11, 2026</div><h2><a href="https://apnews.com/article/8c3272812f5e9b9238c6a3301921c17a" target="_blank" rel="noopener noreferrer">Generic German market prediction</a></h2><p class="summary">Something might have happened in the German market. </p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">+42 Bullish</span></div><div class="meter"><span class="marker" style="left:71%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale">This is the reason for our bias score. </p></div></article>
     <article class="bearish"><div class="story"><img class="thumbnail" src="https://images.axios.com/FlyKcXW0teLCiBnBnxLHfm-SdQU%3D/52x0/smart/2023/09/19/1695121452939.jpg" alt="Oil pump equipment"><div><div class="meta">Axios · September 11, 2026</div><h2><a href="https://www.axios.com/2026/09/11/bonds-oil-diesel-costs" target="_blank" rel="noopener noreferrer">Deutsche Bank: Bad news</a></h2><p class="summary">Description. </p></div></div><div class="bias"><div class="bias-heading"><strong>Directional bias</strong><span class="score">−68 Bearish</span></div><div class="meter"><span class="marker" style="left:16%"></span></div><div class="scale"><span>−100 Bearish</span><span>0 Neutral</span><span>+100 Bullish</span></div><p class="rationale"This is the reason for our bias score.</p></div></article>
