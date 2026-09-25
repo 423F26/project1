@@ -42,7 +42,7 @@ TLS 1.2+ request
 - TLS key and certificate paths are mandatory at startup.
 - `ALLOWED_HOSTS` is mandatory and exact-match only.
 - No cookies, CORS, request parsing, server-side storage, logging of requests, or dependencies exist. The root document includes a visual U.S./Germany filing-market choice and native search fields, but the choice and Search button are inert and cannot submit a form or make a request. Filing retrieval and RSS syncing are deferred.
-- The single inline script changes only translated page text, accessible labels, and `<html lang>`; it saves `en` or `de` under `pageLanguage` in browser local storage when available. It does not change the selected filing market, entered text, filters, or feed fixtures.
+- The single inline script changes only translated page text, accessible labels, and `<html lang>`; it saves `en` or `de` under `pageLanguage` in browser local storage when available. It does not change the selected filing market, entered text, filters, or feed fixtures. Its `data-cfasync="false"` attribute keeps Cloudflare Rocket Loader from intercepting it.
 - The service rejects bodies and transfer encodings, caps header size/count and keep-alive work, and returns plaintext errors. Its HTML response has a restrictive CSP with a SHA-256 hash for that inline script, HSTS, `Referrer-Policy: no-referrer`, and may load only HTTPS publisher thumbnails. The other CSP restrictions remain in place.
 
 Preserve these invariants unless the change is explicitly approved and documented in this file and `CHANGELOG.md`.

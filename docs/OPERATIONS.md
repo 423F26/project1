@@ -12,6 +12,8 @@ The interface is a static filing-search prototype above the September 2026 news 
 
 The top-right `Deutsch`/`English` button switches page text immediately and updates the document language. The page starts in English unless `pageLanguage` is saved as `de` in browser local storage. Clearing that key restores English on the next visit; if storage is blocked, the button still works until the page closes. Language switching leaves entered search text, selected options, the filing-market display, and the fixed news items in place. The server allows the page's one inline language script by its SHA-256 CSP hash and keeps the other CSP restrictions.
 
+Cloudflare Rocket Loader must leave the inline language script alone; its `data-cfasync="false"` attribute opts that script out. Do not allow Rocket Loader or analytics scripts through the CSP just to make the toggle work.
+
 ## Compose deployment
 
 ```powershell

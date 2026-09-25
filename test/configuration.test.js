@@ -33,8 +33,9 @@ test('only serves the configured HTML root endpoint', () => {
   assert.equal(success.status, 200);
   assert.equal(success.body, html);
   assert.equal(success.headers['content-type'], 'text/html; charset=utf-8');
-  const scripts = [...success.body.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  const scripts = [...success.body.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
   assert.equal(scripts.length, 1);
+  assert.match(success.body, /<script data-cfasync="false">/);
   const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
   assert.equal(success.headers['content-security-policy'].split('; ').find(rule => rule.startsWith('script-src ')), `script-src 'sha256-${scriptHash}'`);
   for (const rule of ["default-src 'none'", "img-src https:", "connect-src 'none'", "frame-src 'none'", "form-action 'none'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(success.headers['content-security-policy'].includes(rule));
