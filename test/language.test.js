@@ -6,7 +6,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
-const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+const script = html.match(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(script);
 
 function page(saved, storageUnavailable = false) {

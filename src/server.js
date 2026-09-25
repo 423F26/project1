@@ -22,7 +22,7 @@ function reply(response, status, body = '', extraHeaders = {}) {
 }
 
 function createServer(options) {
-  const scripts = [...options.html.matchAll(/<script>([\s\S]*?)<\/script>/gi)];
+  const scripts = [...options.html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
   if (scripts.length !== 1) throw new Error('HTML must contain exactly one inline script');
   const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
   const attempts = new Map();
