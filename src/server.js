@@ -1,6 +1,7 @@
 'use strict';
 
 const { readFileSync } = require('node:fs');
+const { createHash } = require('node:crypto');
 const https = require('node:https');
 
 const headers = {
@@ -21,6 +22,9 @@ function reply(response, status, body = '', extraHeaders = {}) {
 }
 
 function createServer(options) {
+  const scripts = [...options.html.matchAll(/<script>([\s\S]*?)<\/script>/gi)];
+  if (scripts.length !== 1) throw new Error('HTML must contain exactly one inline script');
+  const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
   const attempts = new Map();
   const server = https.createServer({ ...options.tls, maxHeaderSize: 8 * 1024, insecureHTTPParser: false }, (request, response) => {
     const now = Date.now();
@@ -46,7 +50,7 @@ function createServer(options) {
     request.on('data', () => request.destroy());
     reply(response, 200, options.html, {
       'content-type': 'text/html; charset=utf-8',
-      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+      'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'sha256-${scriptHash}'; connect-src 'none'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`
     });
   });
 
