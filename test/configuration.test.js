@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { readFileSync } = require('node:fs');
+const { createHash } = require('node:crypto');
 const test = require('node:test');
 const { createServer, hosts } = require('../src/server');
 
@@ -32,16 +33,19 @@ test('only serves the configured HTML root endpoint', () => {
   assert.equal(success.status, 200);
   assert.equal(success.body, html);
   assert.equal(success.headers['content-type'], 'text/html; charset=utf-8');
-  assert.match(success.headers['content-security-policy'], /script-src 'none'/);
+  const scripts = [...success.body.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  assert.equal(scripts.length, 1);
+  const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
+  assert.equal(success.headers['content-security-policy'].split('; ').find(rule => rule.startsWith('script-src ')), `script-src 'sha256-${scriptHash}'`);
+  for (const rule of ["default-src 'none'", "img-src https:", "connect-src 'none'", "frame-src 'none'", "form-action 'none'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(success.headers['content-security-policy'].includes(rule));
   assert.equal(success.headers['referrer-policy'], 'no-referrer');
-  for (const value of ['Untitled', 'Paste a statement link or search a company or article', 'RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Coming soon']) assert.match(success.body, new RegExp(value));
-  assert.equal((success.body.match(/type="checkbox"/g) ?? []).length, 3);
-  assert.equal((success.body.match(/type="button"/g) ?? []).length, 2);
+  for (const value of ['Untitled', 'Choose a filing market', 'RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Coming soon']) assert.match(success.body, new RegExp(value));
+  assert.equal((success.body.match(/type="button"/g) ?? []).length, 3);
   assert.equal((success.body.match(/<input[^>]*type="url"/g) ?? []).length, 1);
   assert.equal((success.body.match(/<article/g) ?? []).length, 5);
   assert.equal((success.body.match(/class="meter"/g) ?? []).length, 5);
   assert.equal((success.body.match(/target="_blank"/g) ?? []).length, 5);
-  assert.doesNotMatch(success.body, /<form|<script/i);
+  assert.doesNotMatch(success.body, /<form/i);
   const notFound = request(server, { url: '/anything' });
   const methodNotAllowed = request(server, { method: 'HEAD' });
   const post = request(server, { method: 'POST' });

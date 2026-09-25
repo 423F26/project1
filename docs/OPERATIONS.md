@@ -8,7 +8,9 @@ Open https://localhost:8443 and accept the self-signed development certificate w
 
 The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
 
-The interface is a static filing-search prototype above the September 2026 news snapshot and RSS source manager. The U.S./Germany choice is visual only; U.S. search fields are shown. The Search button is inert, with no filing retrieval, analysis, storage, or backend fetch connected. The news cards contain fictional demo scores. Live filing search and RSS syncing are deferred.
+The interface is a static filing-search prototype above the September 2026 news snapshot and RSS source manager. The U.S./Germany filing-market choice is visual only; U.S. search fields are shown. The Search button is inert, with no filing retrieval, analysis, or backend fetch connected. The news cards contain fictional demo scores. Live filing search and RSS syncing are deferred.
+
+The top-right `Deutsch`/`English` button switches page text immediately and updates the document language. The page starts in English unless `pageLanguage` is saved as `de` in browser local storage. Clearing that key restores English on the next visit; if storage is blocked, the button still works until the page closes. Language switching leaves entered search text, selected options, the filing-market display, and the fixed news items in place. The server allows the page's one inline language script by its SHA-256 CSP hash and keeps the other CSP restrictions.
 
 ## Compose deployment
 
