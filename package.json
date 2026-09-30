@@ -9,6 +9,9 @@
     "test": "node --test"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.11.2"
   }
 }

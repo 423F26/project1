@@ -19,8 +19,8 @@
 
 ## Local Deployment & Security
 
-`npm run dev`. Open https://localhost:8443. See [Operations](docs/operations.md) for details.
+Run `npm ci` and `npm run dev`. Open https://localhost:8443. See [Operations](docs/OPERATIONS.md) for details.
 
 With Docker Compose, HTTPS is published at `127.0.0.1:19283`.
 
-The container is unprivileged, read-only, and capability-free. Its defaults are limited to 0.25 CPU, 64 MiB memory, 32 PIDs, and 10 requests per minute per source address.
+The container is unprivileged and capability-free, with a writable volume only for its RSS database. Its defaults are limited to 0.25 CPU, 128 MiB memory, 32 PIDs, and 10 requests per minute per source address.

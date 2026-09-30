@@ -67,7 +67,7 @@ test('switches both ways, including accessible text, without changing search sta
   assert.equal(view.filingType.selectedIndex, 1);
   assert.equal(view.checkbox.checked, true);
   assert.equal(view.find('aria-current', 'true').getAttribute('class'), 'market-option selected');
-  assert.equal(view.elements.find(element => element.textContent === 'Deutsche Bank: Bad news').textContent, 'Deutsche Bank: Bad news');
+  assert.equal(view.find('class', 'feed-heading').textContent, 'Aktuelle Meldungen');
   view.toggle.click();
   assert.equal(view.document.documentElement.lang, 'en');
   assert.equal(view.toggle.textContent, 'Deutsch');
@@ -81,7 +81,7 @@ test('restores a saved language and falls back when storage is unavailable', () 
   assert.equal(restored.document.documentElement.lang, 'de');
   assert.equal(restored.toggle.textContent, 'English');
   assert.equal(restored.find('class', 'search-heading').textContent, 'Markt für Berichte auswählen');
-  assert.equal(restored.find('id', 'rss-url').getAttribute('placeholder'), 'RSS-Feed-URL hinzufügen');
+  assert.equal(restored.find('class', 'feed-heading').textContent, 'Aktuelle Meldungen');
   const noStorage = page(undefined, true);
   assert.equal(noStorage.document.documentElement.lang, 'en');
   noStorage.toggle.click();

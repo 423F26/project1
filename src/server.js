@@ -3,6 +3,7 @@
 const { readFileSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const https = require('node:https');
+const { openStore, startCollector } = require('./rss');
 
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -19,6 +20,18 @@ function hosts(value) {
 function reply(response, status, body = '', extraHeaders = {}) {
   response.writeHead(status, { ...headers, ...extraHeaders, 'content-length': Buffer.byteLength(body) });
   response.end(body);
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+}
+
+function renderFeed(items) {
+  if (!items.length) return '<p class="feed-empty" data-de="Noch keine Meldungen verfügbar. Bitte versuchen Sie es später erneut.">No updates available yet. Please check back later.</p>';
+  return items.map((item) => {
+    const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(item.published_at.slice(0, 10))}</time>` : '';
+    return `<article><div class="meta">${escapeHtml(item.publisher)}${date ? ` · ${date}` : ''}</div><h2><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a></h2>${item.excerpt ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : ''}</article>`;
+  }).join('');
 }
 
 function createServer(options) {
@@ -48,7 +61,8 @@ function createServer(options) {
       return reply(response, 413, 'Request body not accepted.\n');
     }
     request.on('data', () => request.destroy());
-    reply(response, 200, options.html, {
+    const html = options.html.replace('<!-- FEED_ITEMS -->', () => renderFeed(options.store?.recent() ?? []));
+    reply(response, 200, html, {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'sha256-${scriptHash}'; connect-src 'none'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`
     });
@@ -66,8 +80,10 @@ if (require.main === module) {
   if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isInteger(rateLimit) || rateLimit < 1) throw new Error('PORT and RATE_LIMIT must be positive integers');
   const key = process.env.TLS_KEY_PATH, cert = process.env.TLS_CERT_PATH;
   if (!key || !cert) throw new Error('TLS_KEY_PATH and TLS_CERT_PATH are required');
-  const server = createServer({ tls: { key: readFileSync(key), cert: readFileSync(cert), minVersion: 'TLSv1.2' }, allowedHosts, rateLimit, html: readFileSync(`${__dirname}/../public/index.html`, 'utf8') });
+  const store = openStore(process.env.RSS_DB_PATH ?? '/data/rss.sqlite');
+  const server = createServer({ tls: { key: readFileSync(key), cert: readFileSync(cert), minVersion: 'TLSv1.2' }, allowedHosts, rateLimit, html: readFileSync(`${__dirname}/../public/index.html`, 'utf8'), store });
   server.listen(port, '0.0.0.0', () => console.log(`Listening on https://0.0.0.0:${port}`));
+  startCollector(store);
 }
 
-module.exports = { createServer, hosts };
+module.exports = { createServer, hosts, renderFeed };

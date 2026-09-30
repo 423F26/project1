@@ -9,6 +9,7 @@ services:
       TLS_CERT_PATH: /certs/tls.crt
     volumes:
       - ./certs:/certs:ro
+      - rss_data:/data
     read_only: true
     tmpfs:
       - /tmp:size=8m,noexec,nosuid,nodev
@@ -18,5 +19,7 @@ services:
       - no-new-privileges:true
     pids_limit: 32
     cpus: 0.25
-    mem_limit: 64m
+    mem_limit: 128m
     restart: unless-stopped
+volumes:
+  rss_data:
