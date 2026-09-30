@@ -1,6 +1,18 @@
 services:
-  plaintext:
+  rss-data-init:
+    image: project1-app
     build: .
+    user: root
+    command: ["chown", "-R", "node:node", "/data"]
+    volumes:
+      - rss_data:/data
+    restart: "no"
+  plaintext:
+    image: project1-app
+    build: .
+    depends_on:
+      rss-data-init:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:19283:19283"
     environment:
