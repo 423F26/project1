@@ -28,6 +28,8 @@ docker compose up --build -d
 
 Compose stores RSS entries in the `rss_data` named volume mounted at `/data`. Preserve this volume across container rebuilds to retain feed history. The application keeps all fetched entries and does not prune them automatically. The container needs outbound HTTPS access to the eight publisher feeds. Only SEC requests identify the project with `charles.smith26@student.montana.edu` in the User-Agent.
 
+Before the application starts, the one-shot `rss-data-init` service assigns the volume contents to the unprivileged `node` user. This also repairs ownership on volumes created by an older deployment. The service exits after initialization; the application container itself still runs unprivileged.
+
 ## Configuration
 
 | Input | Set in | Required | Notes |

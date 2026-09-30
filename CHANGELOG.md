@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed Compose startup with new or previously root-owned RSS volumes by initializing their ownership before the unprivileged application starts.
+
 - Moved RSS collection to an hourly backend job with persistent SQLite storage and live homepage entries; removed visitor RSS controls and fictional news cards. Publisher corrections are applied on refresh, SEC text respects its declared encoding, and duplicate rows cannot hide recent distinct entries.
 
 - Excluded the language script from Cloudflare Rocket Loader so the CSP-permitted toggle runs on the live site.
