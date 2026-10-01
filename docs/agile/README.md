@@ -1,3 +1,3 @@
 # Agile
 
-All Agile artifacts are attached in the [AGILE ARTIFACTS.xlsx](docs/agile/AGILE ARTIFACTS.xlsx)
+All agile artifacts are detailed in the [AGILE_ARTIFACTS.xlsx](docs/agile/AGILE_ARTIFACTS.xlsx) file.
