@@ -40,7 +40,7 @@ test('only serves the configured HTML root endpoint', () => {
   assert.equal(success.headers['content-security-policy'].split('; ').find(rule => rule.startsWith('script-src ')), `script-src 'sha256-${scriptHash}'`);
   for (const rule of ["default-src 'none'", "img-src https:", "connect-src 'none'", "frame-src 'none'", "form-action 'none'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(success.headers['content-security-policy'].includes(rule));
   assert.equal(success.headers['referrer-policy'], 'no-referrer');
-  for (const value of ['Untitled', 'Choose a filing market', 'Latest updates']) assert.match(success.body, new RegExp(value));
+  for (const value of ['Financial review', 'Find company filings', 'Latest updates']) assert.match(success.body, new RegExp(value));
   for (const value of ['RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Directional bias']) assert.doesNotMatch(success.body, new RegExp(value));
   assert.equal((success.body.match(/type="button"/g) ?? []).length, 2);
   assert.equal((success.body.match(/<input[^>]*type="url"/g) ?? []).length, 0);

@@ -6,3 +6,7 @@ certs/
 node_modules/
 data/
 .DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.Rhistory
