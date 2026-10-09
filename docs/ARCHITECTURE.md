@@ -1,6 +1,6 @@
 # Architecture
 
-All agents must read [agents/PONYTAIL.md](agents/PONYTAIL.md) before planning changes and again before every commit. Use its philosophy when making architecture decisions: understand the affected flow, reuse existing capabilities, and choose the smallest correct change. See the [Repository guide](../AGENTS.md) for the required workflow.
+Follow the [Repository guide](agents/AGENTS.md), [Ponytail](agents/PONYTAIL.md), and [Design](agents/DESIGN.md) on every pass.
 
 ## Shape
 
@@ -14,7 +14,7 @@ The service has one persistent SQLite RSS store. Its only success response is th
 
 | Location | Purpose | Change carefully when |
 | --- | --- | --- |
-| [docs/agents/PONYTAIL.md](agents/PONYTAIL.md) | Verbatim development philosophy; required reading before planning and committing | Preserve unchanged; put repository-specific guidance in [AGENTS.md](../AGENTS.md) |
+| [docs/agents/](agents/AGENTS.md) | Canonical workflow, Ponytail philosophy, and design language | Changing contributor guidance or UI contracts |
 | [src/server.js](../src/server.js) | HTTPS server, validation, headers, timeouts, rate limiting | Changing request behavior or security controls |
 | [src/rss.js](../src/rss.js) | Fixed feed list, hourly collector, XML parsing, SQLite persistence | Changing ingestion or storage |
 | [public/index.html](../public/index.html) | Interface template, inline styles, one inline language script | Changing the UI |
@@ -47,4 +47,4 @@ TLS 1.2+ request
 - The collector fetches only the eight fixed publisher URLs. Entries are deduplicated in SQLite and rendered as escaped text with HTTPS links. A one-shot Compose service assigns the `/data` volume to the `node` user before the read-only, unprivileged application container starts. Failed feeds do not erase previously saved entries.
 - The service rejects bodies and transfer encodings, caps header size/count and keep-alive work, and returns plaintext errors. Its HTML response has a restrictive CSP with a SHA-256 hash for that inline script, HSTS, and `Referrer-Policy: no-referrer`. The other CSP restrictions remain in place.
 
-Preserve these invariants unless the change is explicitly approved and documented in this file and `CHANGELOG.md`.
+Preserve these invariants unless the change is explicitly approved and documented here. Human maintainers own the [Agile workbook](agile/AGILE_ARTIFACTS.xlsx); agents leave Agile records untouched.

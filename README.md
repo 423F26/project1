@@ -15,7 +15,7 @@
 
 [Operations](docs/OPERATIONS.md)
 
-[Agents](docs/agents/AGENTS.md)
+[Agents](docs/agents/AGENTS.md) · [Design language](docs/agents/DESIGN.md)
 
 ## Local Deployment & Security
 

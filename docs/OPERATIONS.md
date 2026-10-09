@@ -8,11 +8,11 @@ Open https://localhost:8443 and accept the self-signed development certificate w
 
 The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
 
-The interface is a static filing-search prototype above live RSS updates. The U.S./Germany filing-market choice is visual only; U.S. search fields are shown. The Search button is inert, with no filing retrieval or bias analysis connected. There are no visitor-facing RSS settings or bias scores.
+The [Refined Reading desk](agents/DESIGN.md) interface is a static filing-search prototype above live RSS updates. Its availability notice is omitted by design; no search handler is connected. The U.S./Germany filing-market choice is visual only; U.S. search fields are shown. The Search button is inert, with no filing retrieval or bias analysis connected. There are no visitor-facing RSS settings or bias scores.
 
 The backend fetches three ECB, two BaFin, and three SEC feeds once at startup and every 60 minutes thereafter. Page visits read saved entries and never trigger publisher requests. The 20 newest distinct links appear on the homepage. A source failure leaves saved entries available; if the database has no entries yet, the page shows an empty message. Polling hourly can miss items that rotate out of a feed between polls; SEC documents that its listed feeds contain a limited set of recent filings. Feed text remains in its published language. Development data lives in ignored `data/rss.sqlite`; delete that file to reset local RSS history.
 
-The top-right `Deutsch`/`English` button switches page text immediately and updates the document language. The page starts in English unless `pageLanguage` is saved as `de` in browser local storage. Clearing that key restores English on the next visit; if storage is blocked, the button still works until the page closes. Language switching leaves entered search text, selected options, the filing-market display, and the live feed text in place. The server allows the page's one inline language script by its SHA-256 CSP hash and keeps the other CSP restrictions.
+The `🇩🇪 Deutsch`/`🇺🇸 English` button switches page text immediately and updates the document language. The page starts in English unless `pageLanguage` is saved as `de` in browser local storage. Clearing that key restores English on the next visit; if storage is blocked, the button still works until the page closes. Language switching leaves entered search text, selected options, the filing-market display, and the live feed text in place. The server allows the page's one inline language script by its SHA-256 CSP hash and keeps the other CSP restrictions.
 
 Cloudflare Rocket Loader must leave the inline language script alone; its `data-cfasync="false"` attribute opts that script out. Do not allow Rocket Loader or analytics scripts through the CSP just to make the toggle work.
 
@@ -62,7 +62,7 @@ Do not change the port mapping to `0.0.0.0` unless a firewall limits inbound tra
 - **Minor** (`0.0.1` → `0.1.0`): backward-compatible configuration or behavior additions. Before `1.0.0`, use a minor increment for incompatible changes as well.
 - **Major** (`0.1.0` → `1.0.0`): the first stable release, after the endpoint, deployment, configuration, and security contract are established.
 
-Every change belongs under `Unreleased` in `CHANGELOG.md`. At release, move those entries into a dated version section and update `package.json` in the same change.
+Human maintainers track changes in the [Agile workbook](agile/AGILE_ARTIFACTS.xlsx); agents leave Agile records untouched. Update `package.json` when releasing.
 
 ## Fast checks
 

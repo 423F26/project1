@@ -50,7 +50,8 @@ function page(saved, storageUnavailable = false) {
 test('switches both ways, including accessible text, without changing search state', () => {
   const view = page();
   assert.equal(view.document.documentElement.lang, 'en');
-  assert.equal(view.toggle.textContent, 'Deutsch');
+  assert.equal(view.find('id', 'language-flag').textContent, '🇩🇪');
+  assert.equal(view.find('id', 'language-name').textContent, 'Deutsch');
   const originals = view.elements.filter(element => element.getAttribute('data-de') !== null)
     .map(element => [element, element.textContent]);
   const originalAttrs = view.elements.flatMap(element => ['aria-label', 'placeholder', 'alt']
@@ -58,7 +59,9 @@ test('switches both ways, including accessible text, without changing search sta
     .map(name => [element, name, element.getAttribute(name)]));
   view.toggle.click();
   assert.equal(view.document.documentElement.lang, 'de');
-  assert.equal(view.toggle.textContent, 'English');
+  assert.equal(view.find('id', 'language-flag').textContent, '🇺🇸');
+  assert.equal(view.find('id', 'language-flag').getAttribute('aria-hidden'), 'true');
+  assert.equal(view.find('id', 'language-name').textContent, 'English');
   for (const [element] of originals) assert.equal(element.textContent, element.getAttribute('data-de'));
   for (const [element, name] of originalAttrs) assert.equal(element.getAttribute(name), element.getAttribute(`data-de-${name}`));
   assert.equal(view.toggle.getAttribute('aria-label'), 'Seite auf Englisch anzeigen');
@@ -70,7 +73,7 @@ test('switches both ways, including accessible text, without changing search sta
   assert.equal(view.find('class', 'feed-heading').textContent, 'Aktuelle Meldungen');
   view.toggle.click();
   assert.equal(view.document.documentElement.lang, 'en');
-  assert.equal(view.toggle.textContent, 'Deutsch');
+  assert.equal(view.find('id', 'language-name').textContent, 'Deutsch');
   for (const [element, text] of originals) assert.equal(element.textContent, text);
   for (const [element, name, value] of originalAttrs) assert.equal(element.getAttribute(name), value);
   assert.equal(view.savedValues.get('pageLanguage'), 'en');
@@ -79,8 +82,8 @@ test('switches both ways, including accessible text, without changing search sta
 test('restores a saved language and falls back when storage is unavailable', () => {
   const restored = page('de');
   assert.equal(restored.document.documentElement.lang, 'de');
-  assert.equal(restored.toggle.textContent, 'English');
-  assert.equal(restored.find('class', 'search-heading').textContent, 'Markt für Berichte auswählen');
+  assert.equal(restored.find('id', 'language-name').textContent, 'English');
+  assert.equal(restored.find('class', 'search-heading').textContent, 'Unternehmensberichte finden');
   assert.equal(restored.find('class', 'feed-heading').textContent, 'Aktuelle Meldungen');
   const noStorage = page(undefined, true);
   assert.equal(noStorage.document.documentElement.lang, 'en');

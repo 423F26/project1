@@ -30,7 +30,7 @@ function renderFeed(items) {
   if (!items.length) return '<p class="feed-empty" data-de="Noch keine Meldungen verfügbar. Bitte versuchen Sie es später erneut.">No updates available yet. Please check back later.</p>';
   return items.map((item) => {
     const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(item.published_at.slice(0, 10))}</time>` : '';
-    return `<article><div class="meta">${escapeHtml(item.publisher)}${date ? ` · ${date}` : ''}</div><h2><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a></h2>${item.excerpt ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : ''}</article>`;
+    return `<article><div class="meta"><span class="publisher">${escapeHtml(item.publisher)}</span>${date}</div><h3><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}<span class="visually-hidden" data-de=" (öffnet in einem neuen Tab)"> (opens in a new tab)</span></a></h3>${item.excerpt ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : ''}</article>`;
   }).join('');
 }
 
