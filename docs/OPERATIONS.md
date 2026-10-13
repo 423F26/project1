@@ -6,7 +6,7 @@ Install Node.js 22.13+ (with npm) and OpenSSL, run `npm ci`, then run `npm run d
 
 Open https://localhost:8443 and accept the self-signed development certificate warning. The server binds only to `127.0.0.1` and restarts when its JavaScript files change. Stop it with Ctrl+C. To check the endpoint from a terminal, run `curl -k https://localhost:8443/`; expect the Financial Bias Detector HTML document.
 
-The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. The same HTTPS server and request protections apply, including the 10 requests/minute limit.
+The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. Set `PORT` to use a different local port when 8443 is occupied (for example, `PORT=8765 npm run dev`). The same HTTPS server and request protections apply, including the 10 requests/minute limit.
 
 The [Refined Reading desk](agents/DESIGN.md) interface is a static filing-search prototype above a “Recent Filings” feed of company filings and regulatory updates. SEC filings are grouped by company while each title links directly to its filing; grouped entries include readable form, filed date/time, and accession details. Each page includes at most eight SEC filings. BaFin and ECB entries retain their published titles and use an “Open update” link. The compact source/date filter and “Show 20 more” control query saved entries through the same-origin `/api/filings` endpoint. These controls do not change the static company-search prototype or add bias scores.
 
