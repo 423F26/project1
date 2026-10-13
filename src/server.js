@@ -99,7 +99,7 @@ function createServer(options) {
     }
     request.on('data', () => request.destroy());
     const firstPage = options.store?.page?.({ limit: 20, offset: 0 }) ?? { items: options.store?.recent?.() ?? [], nextOffset: 20, hasMore: false };
-    const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p>${firstPage.hasMore ? '<button class="show-more" type="button" data-offset="' + firstPage.nextOffset + '">Show 20 more</button>' : ''}`);
+    const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p>${firstPage.hasMore ? '<button class="show-more" type="button" data-de="20 weitere anzeigen" data-offset="' + firstPage.nextOffset + '">Show 20 more</button>' : ''}`);
     reply(response, 200, html, {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'sha256-${scriptHash}'; connect-src 'self'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`

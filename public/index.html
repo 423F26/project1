@@ -115,7 +115,7 @@
   <section class="feed" aria-label="Recent filings" data-de-aria-label="Aktuelle Berichte">
     <h2 class="feed-heading" data-de="Aktuelle Berichte">Recent Filings</h2>
     <p class="feed-description" data-de="Neue SEC-Berichte sowie offizielle Meldungen von BaFin und EZB. Öffnen Sie die Originalquelle für Einzelheiten.">New SEC filings and official notices from BaFin and the ECB. Open the source for details.</p>
-    <details class="feed-filters"><summary>Filter by source or date</summary><form class="filter-controls"><label>Filing source<select name="source"><option value="">All sources</option><option>SEC</option><option>BaFin</option><option>ECB</option></select></label><label>From date<input name="from" type="date"></label><label>To date<input name="to" type="date"></label><button type="submit">Apply filters</button><button type="reset">Clear</button></form></details>
+    <details class="feed-filters"><summary data-de="Nach Quelle oder Datum filtern">Filter by source or date</summary><form class="filter-controls"><label><span data-de="Quelle">Filing source</span><select name="source"><option value="" data-de="Alle Quellen">All sources</option><option>SEC</option><option>BaFin</option><option>ECB</option></select></label><label><span data-de="Ab Datum">From date</span><input name="from" type="date"></label><label><span data-de="Bis Datum">To date</span><input name="to" type="date"></label><button type="submit"><span data-de="Filter anwenden">Apply filters</span></button><button type="reset"><span data-de="Zurücksetzen">Clear</span></button></form></details>
     <!-- FEED_ITEMS -->
   </section></main>
   <script data-cfasync="false">
@@ -174,7 +174,7 @@
     async function loadPage(offset, replace) {
       if (loading) return;
       loading = true;
-      status.textContent = 'Loading filings…';
+      status.textContent = language === 'de' ? 'Berichte werden geladen…' : 'Loading filings…';
       const query = filters(); query.set('offset', String(offset));
       try {
         const response = await fetch(`/api/filings?${query}`, { headers: { accept: 'application/json' } });
@@ -183,11 +183,11 @@
         mergeFeed(page.html, replace);
         let button = feed.querySelector('.show-more');
         if (page.hasMore) {
-          if (!button) { button = document.createElement('button'); button.type = 'button'; button.className = 'show-more'; feed.append(button); }
-          button.dataset.offset = String(page.nextOffset); button.textContent = 'Show 20 more'; button.disabled = false;
+          if (!button) { button = document.createElement('button'); button.type = 'button'; button.className = 'show-more'; button.dataset.de = '20 weitere anzeigen'; feed.append(button); }
+          button.dataset.offset = String(page.nextOffset); button.textContent = language === 'de' ? button.dataset.de : 'Show 20 more'; button.disabled = false;
         } else if (button) button.remove();
         status.textContent = '';
-      } catch (_) { status.textContent = 'Could not load filings. Please try again.'; }
+      } catch (_) { status.textContent = language === 'de' ? 'Berichte konnten nicht geladen werden. Bitte erneut versuchen.' : 'Could not load filings. Please try again.'; }
       finally { loading = false; }
     }
     filterForm.addEventListener('submit', event => { event.preventDefault(); loadPage(0, true); });
