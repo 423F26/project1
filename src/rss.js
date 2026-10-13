@@ -114,12 +114,41 @@ function openStore(path) {
       AND (? = '' OR date(COALESCE(published_at, fetched_at)) >= date(?))
       AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))
     ) WHERE rank = 1 ORDER BY sort_date DESC, link ASC LIMIT ? OFFSET ?`);
-  const total = db.prepare(`SELECT COUNT(*) AS count FROM (
-    SELECT link, ROW_NUMBER() OVER (PARTITION BY link ORDER BY COALESCE(published_at, fetched_at) DESC) AS rank
-    FROM feed_items WHERE (? = '' OR publisher = ?)
+  const filterSql = `(? = '' OR publisher = ?)
       AND (? = '' OR date(COALESCE(published_at, fetched_at)) >= date(?))
-      AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))
-    ) WHERE rank = 1`);
+      AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))`;
+  const rankedSql = `WITH ranked AS (
+    SELECT publisher, title, link, published_at, excerpt, company_name, form_type,
+      COALESCE(published_at, fetched_at) AS sort_date,
+      ROW_NUMBER() OVER (PARTITION BY link ORDER BY COALESCE(published_at, fetched_at) DESC) AS rank
+    FROM feed_items WHERE ${filterSql}
+  )`;
+  const secGroups = db.prepare(`${rankedSql}
+    SELECT lower(trim(COALESCE(NULLIF(company_name, ''), title))) AS company_key,
+      MAX(COALESCE(NULLIF(company_name, ''), title)) AS company_name, MAX(sort_date) AS sort_date
+    FROM ranked WHERE rank = 1 AND publisher = 'SEC'
+    GROUP BY company_key ORDER BY sort_date DESC, company_key ASC LIMIT ? OFFSET ?`);
+  const otherItems = db.prepare(`${rankedSql}
+    SELECT publisher, title, link, published_at, excerpt, company_name, form_type, sort_date
+    FROM ranked WHERE rank = 1 AND publisher <> 'SEC'
+    ORDER BY sort_date DESC, link ASC LIMIT ? OFFSET ?`);
+  const secCount = db.prepare(`${rankedSql}
+    SELECT COUNT(*) AS count FROM (
+      SELECT lower(trim(COALESCE(NULLIF(company_name, ''), title))) AS company_key
+      FROM ranked WHERE rank = 1 AND publisher = 'SEC' GROUP BY company_key
+    )`);
+  const otherCount = db.prepare(`${rankedSql}
+    SELECT COUNT(*) AS count FROM ranked WHERE rank = 1 AND publisher <> 'SEC'`);
+  const companyFilings = (companyKeys, filters) => {
+    if (!companyKeys.length) return [];
+    const placeholders = companyKeys.map(() => '?').join(',');
+    return db.prepare(`${rankedSql}
+      SELECT publisher, title, link, published_at, excerpt, company_name, form_type, sort_date
+      FROM ranked WHERE rank = 1 AND publisher = 'SEC'
+        AND lower(trim(COALESCE(NULLIF(company_name, ''), title))) IN (${placeholders})
+      ORDER BY sort_date DESC, link ASC`).all(...filters, ...companyKeys);
+  };
+  const filterArgs = (source, from, to) => [source, source, from, from, to, to];
   return {
     save(items) {
       db.exec('BEGIN');
@@ -131,13 +160,19 @@ function openStore(path) {
     recent({ limit = 20, offset = 0, source = '', from = '', to = '' } = {}) {
       return recent.all(source, source, from, from, to, to, limit, offset);
     },
-    page({ limit = 20, offset = 0, source = '', from = '', to = '' } = {}) {
-      const rows = recent.all(source, source, from, from, to, to, limit, offset);
-      let secCount = 0;
-      const items = rows.filter((row) => row.publisher !== 'SEC' || secCount++ < 8);
-      const count = total.get(source, source, from, from, to, to).count;
-      const nextOffset = offset + rows.length;
-      return { items, nextOffset, hasMore: nextOffset < count };
+    page({ limit = 20, secOffset = 0, otherOffset = 0, source = '', from = '', to = '' } = {}) {
+      const filters = filterArgs(source, from, to);
+      const selectedCompanies = source === 'BaFin' || source === 'ECB' ? [] : secGroups.all(...filters, 8, secOffset);
+      const otherLimit = source === 'SEC' ? 0 : Math.max(0, limit - selectedCompanies.length);
+      const otherRows = otherLimit ? otherItems.all(...filters, otherLimit, otherOffset) : [];
+      const filings = companyFilings(selectedCompanies.map((group) => group.company_key), filters);
+      const displayNames = new Map(selectedCompanies.map((group) => [group.company_key, group.company_name]));
+      for (const item of filings) item.company_name = displayNames.get((item.company_name || item.title).trim().toLocaleLowerCase()) || item.company_name;
+      const items = [...filings, ...otherRows].sort((a, b) => String(b.sort_date).localeCompare(String(a.sort_date)) || a.link.localeCompare(b.link));
+      const nextCursor = { secOffset: secOffset + selectedCompanies.length, otherOffset: otherOffset + otherRows.length };
+      const secTotalCount = source === 'BaFin' || source === 'ECB' ? 0 : secCount.get(...filters).count;
+      const otherTotalCount = source === 'SEC' ? 0 : otherCount.get(...filters).count;
+      return { items, nextCursor, hasMore: nextCursor.secOffset < secTotalCount || nextCursor.otherOffset < otherTotalCount };
     },
     close: () => db.close()
   };

@@ -171,11 +171,11 @@
       }
     }
     let loading = false;
-    async function loadPage(offset, replace) {
+    async function loadPage(cursor, replace) {
       if (loading) return;
       loading = true;
       status.textContent = language === 'de' ? 'Berichte werden geladen…' : 'Loading filings…';
-      const query = filters(); query.set('offset', String(offset));
+      const query = filters(); query.set('secOffset', String(cursor.secOffset)); query.set('otherOffset', String(cursor.otherOffset));
       try {
         const response = await fetch(`/api/filings?${query}`, { headers: { accept: 'application/json' } });
         if (!response.ok) throw new Error('Unable to load filings.');
@@ -184,17 +184,17 @@
         let button = feed.querySelector('.show-more');
         if (page.hasMore) {
           if (!button) { button = document.createElement('button'); button.type = 'button'; button.className = 'show-more'; button.dataset.de = '20 weitere anzeigen'; feed.append(button); }
-          button.dataset.offset = String(page.nextOffset); button.textContent = language === 'de' ? button.dataset.de : 'Show 20 more'; button.disabled = false;
+          button.dataset.secOffset = String(page.nextCursor.secOffset); button.dataset.otherOffset = String(page.nextCursor.otherOffset); button.textContent = language === 'de' ? button.dataset.de : 'Show 20 more'; button.disabled = false;
         } else if (button) button.remove();
         status.textContent = '';
       } catch (_) { status.textContent = language === 'de' ? 'Berichte konnten nicht geladen werden. Bitte erneut versuchen.' : 'Could not load filings. Please try again.'; }
       finally { loading = false; }
     }
-    filterForm.addEventListener('submit', event => { event.preventDefault(); loadPage(0, true); });
-    filterForm.addEventListener('reset', () => setTimeout(() => loadPage(0, true), 0));
+    filterForm.addEventListener('submit', event => { event.preventDefault(); loadPage({ secOffset: 0, otherOffset: 0 }, true); });
+    filterForm.addEventListener('reset', () => setTimeout(() => loadPage({ secOffset: 0, otherOffset: 0 }, true), 0));
     feed.addEventListener('click', event => {
       const button = event.target.closest('.show-more');
-      if (button) { button.disabled = true; loadPage(Number(button.dataset.offset), false); }
+      if (button) { button.disabled = true; loadPage({ secOffset: Number(button.dataset.secOffset), otherOffset: Number(button.dataset.otherOffset) }, false); }
     });
   </script>
 </body>

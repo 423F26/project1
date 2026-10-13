@@ -28,7 +28,7 @@ function escapeHtml(value) {
 
 function renderFeed(items) {
   if (!items.length) return '<p class="feed-empty" data-de="Noch keine Meldungen verfügbar. Bitte versuchen Sie es später erneut.">No updates available yet. Please check back later.</p>';
-  const filingNames = { '10-K': 'Annual report', '10-Q': 'Quarterly report', '8-K': 'Current report', '20-F': 'Foreign issuer annual report', '6-K': 'Foreign issuer report', 'S-1': 'Registration statement', '4': 'Insider ownership change', '13F-HR': 'Institutional investment manager holdings', '424B2': 'Prospectus supplement', '487': 'Pre-effective pricing amendment' };
+  const filingNames = { '10-K': 'Annual report', '10-Q': 'Quarterly report', '8-K': 'Current report', '20-F': 'Foreign issuer annual report', '6-K': 'Foreign issuer report', 'S-1': 'Registration statement', '4': 'Insider ownership change', '13F-HR': 'Institutional investment manager holdings', '424B1': 'Prospectus', '424B2': 'Prospectus supplement', '424B3': 'Prospectus', '424B4': 'Prospectus', '424B5': 'Prospectus supplement', '424B7': 'Prospectus', '487': 'Pre-effective pricing amendment' };
   const groups = [], companies = new Map();
   for (const item of items) {
     if (item.publisher !== 'SEC') { groups.push({ item }); continue; }
@@ -44,7 +44,8 @@ function renderFeed(items) {
     const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(item.published_at.slice(0, 10))} · ${escapeHtml(new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' }).format(new Date(item.published_at)))}</time>` : '';
     const accession = /\/(\d{10}-\d{2}-\d{6})-index\.htm(?:[?#].*)?$/i.exec(item.link)?.[1] ?? '';
     const link = `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a>`;
-    return `<div class="filing-entry${primary ? ' primary-filing' : ''}" data-link="${escapeHtml(item.link)}">${primary ? `<h3>${link}</h3>` : `<p class="filing-title">${link}</p>`}<p class="filing-meta">${date}${accession ? `<span>Accession ${escapeHtml(accession)}</span>` : ''}</p></div>`;
+    const excerpt = item.excerpt && !/^\w[\w-]{0,11}$/.test(item.excerpt) ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : '';
+    return `<div class="filing-entry${primary ? ' primary-filing' : ''}" data-link="${escapeHtml(item.link)}">${primary ? `<h3>${link}</h3>` : `<p class="filing-title">${link}</p>`}<p class="filing-meta">${date}${accession ? `<span>Accession ${escapeHtml(accession)}</span>` : ''}</p>${excerpt}</div>`;
   };
   return groups.map((group) => {
     if (group.item) {
@@ -55,7 +56,7 @@ function renderFeed(items) {
       const excerpt = item.excerpt ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : '';
       return `<article class="feed-item" data-publisher="${escapeHtml(item.publisher)}"><div class="meta"><span class="publisher">${escapeHtml(item.publisher)}</span>${date}</div><h3><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a></h3>${action}${excerpt}</article>`;
     }
-    return `<article class="feed-item company-group" data-publisher="SEC" data-company="${escapeHtml(group.company.toLocaleLowerCase())}"><div class="meta"><span class="publisher">SEC</span></div>${group.filings.map((item, index) => filingEntry(item, group.company, index === 0)).join('')}${group.filings.length > 1 ? `<details class="more-filings"><summary>+${group.filings.length - 1} more filing${group.filings.length === 2 ? '' : 's'}</summary><div class="filing-list">${group.filings.slice(1).map((item) => filingEntry(item, group.company)).join('')}</div></details>` : ''}</article>`;
+    return `<article class="feed-item company-group" data-publisher="SEC" data-company="${escapeHtml(group.company.toLocaleLowerCase())}"><div class="meta"><span class="publisher">SEC</span></div>${filingEntry(group.filings[0], group.company, true)}${group.filings.length > 1 ? `<details class="more-filings"><summary>+${group.filings.length - 1} more filing${group.filings.length === 2 ? '' : 's'}</summary><div class="filing-list">${group.filings.slice(1).map((item) => filingEntry(item, group.company)).join('')}</div></details>` : ''}</article>`;
   }).join('');
 }
 
@@ -86,10 +87,11 @@ function createServer(options) {
       if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
       const source = url.searchParams.get('source') ?? '';
       const from = url.searchParams.get('from') ?? '', to = url.searchParams.get('to') ?? '';
-      const offset = Number(url.searchParams.get('offset') ?? 0);
+      const secOffset = Number(url.searchParams.get('secOffset') ?? 0);
+      const otherOffset = Number(url.searchParams.get('otherOffset') ?? 0);
       const validDate = (value) => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value);
-      if (!['', 'SEC', 'BaFin', 'ECB'].includes(source) || !Number.isInteger(offset) || offset < 0 || offset > 1_000_000 || !validDate(from) || !validDate(to) || (from && to && from > to)) return reply(response, 400, 'Invalid feed filters.\n');
-      const page = options.store?.page?.({ limit: 20, offset, source, from, to }) ?? { items: [], nextOffset: offset, hasMore: false };
+      if (!['', 'SEC', 'BaFin', 'ECB'].includes(source) || !Number.isInteger(secOffset) || secOffset < 0 || secOffset > 1_000_000 || !Number.isInteger(otherOffset) || otherOffset < 0 || otherOffset > 1_000_000 || !validDate(from) || !validDate(to) || (from && to && from > to)) return reply(response, 400, 'Invalid feed filters.\n');
+      const page = options.store?.page?.({ limit: 20, secOffset, otherOffset, source, from, to }) ?? { items: [], nextCursor: { secOffset, otherOffset }, hasMore: false };
       const body = JSON.stringify({ html: renderFeed(page.items), ...page });
       return reply(response, 200, body, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
     }
@@ -98,8 +100,8 @@ function createServer(options) {
       return reply(response, 413, 'Request body not accepted.\n');
     }
     request.on('data', () => request.destroy());
-    const firstPage = options.store?.page?.({ limit: 20, offset: 0 }) ?? { items: options.store?.recent?.() ?? [], nextOffset: 20, hasMore: false };
-    const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p>${firstPage.hasMore ? '<button class="show-more" type="button" data-de="20 weitere anzeigen" data-offset="' + firstPage.nextOffset + '">Show 20 more</button>' : ''}`);
+    const firstPage = options.store?.page?.({ limit: 20, secOffset: 0, otherOffset: 0 }) ?? { items: options.store?.recent?.() ?? [], nextCursor: { secOffset: 0, otherOffset: 20 }, hasMore: false };
+    const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p>${firstPage.hasMore ? '<button class="show-more" type="button" data-de="20 weitere anzeigen" data-sec-offset="' + firstPage.nextCursor.secOffset + '" data-other-offset="' + firstPage.nextCursor.otherOffset + '">Show 20 more</button>' : ''}`);
     reply(response, 200, html, {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'sha256-${scriptHash}'; connect-src 'self'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`
