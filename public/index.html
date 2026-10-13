@@ -40,13 +40,32 @@
     .search-actions button:hover { background: #c6e0fa; }
     .feed { padding-top: 40px; }
     .feed-heading { margin: 0; padding-bottom: 18px; border-bottom: 1px solid var(--separator); font: 400 28px/1.25 Georgia, 'Times New Roman', serif; }
+    .feed-description { padding-top: 12px; color: var(--muted); font-size: 14px; }
+    .feed-filters { margin: 18px 0 0; color: var(--muted); font-size: 14px; }
+    .feed-filters summary { width: fit-content; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+    .filter-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 14px 0 4px; }
+    .filter-controls label { display: grid; gap: 5px; color: var(--muted); }
+    .filter-controls input, .filter-controls select { min-height: 40px; padding: 7px 10px; border: 1px solid var(--control); border-radius: 6px; background: #000; color: var(--text); font: inherit; }
+    .filter-controls button { min-height: 40px; padding: 6px 14px; }
     article { display: grid; grid-template-columns: 104px minmax(0, 1fr); column-gap: 24px; padding: 28px 0; border-bottom: 1px solid var(--separator); }
-    .meta { grid-column: 1; grid-row: 1 / 3; padding-top: 4px; font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
+    .meta { grid-column: 1; grid-row: 1 / 4; padding-top: 4px; font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
     .publisher { display: block; margin-bottom: 6px; color: var(--text); font-weight: 500; }
     article h3 { grid-column: 2; margin: 0 0 10px; font: 400 23px/1.35 Georgia, 'Times New Roman', serif; }
     article a { color: var(--text); text-decoration-thickness: 1px; text-decoration-color: #939da5; text-underline-offset: 5px; }
     article a:hover { color: var(--accent); }
+    .open-link { grid-column: 2; width: fit-content; margin-bottom: 8px; }
     .summary { grid-column: 2; max-width: 70ch; color: #d2d2cf; overflow-wrap: anywhere; }
+    .company-group .primary-filing { grid-column: 2; }
+    .filing-entry h3, .filing-title { margin: 0 0 5px; font: 400 23px/1.35 Georgia, 'Times New Roman', serif; }
+    .filing-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 0 0 8px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .more-filings { grid-column: 2; margin-top: 4px; color: var(--muted); }
+    .more-filings summary { width: fit-content; cursor: pointer; }
+    .filing-list { margin: 12px 0 0 8px; padding-left: 16px; border-left: 1px solid var(--separator); }
+    .filing-list .filing-entry { padding: 8px 0; }
+    .filing-list .filing-title { font: 400 17px/1.4 Arial, Helvetica, sans-serif; }
+    .feed-status { min-height: 1.6em; padding-top: 12px; color: var(--muted); }
+    .show-more { display: block; min-height: 0; margin: 10px auto 0; padding: 8px; border: 0; border-radius: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; }
+    .show-more:hover { background: transparent; color: #fff; }
     .feed-empty { padding: 32px 0; border-bottom: 1px solid var(--separator); }
     @media (max-width: 760px) {
       body { padding: 24px; }
@@ -93,8 +112,10 @@
     </div>
     <div class="search-actions"><button type="button"><span data-de="Berichte suchen">Find filings</span></button></div>
   </div></section>
-  <section class="feed" aria-label="Latest financial updates" data-de-aria-label="Aktuelle Finanzmeldungen">
-    <h2 class="feed-heading" data-de="Aktuelle Meldungen">Latest updates</h2>
+  <section class="feed" aria-label="Recent filings" data-de-aria-label="Aktuelle Berichte">
+    <h2 class="feed-heading" data-de="Aktuelle Berichte">Recent Filings</h2>
+    <p class="feed-description" data-de="Neue SEC-Berichte sowie offizielle Meldungen von BaFin und EZB. Öffnen Sie die Originalquelle für Einzelheiten.">New SEC filings and official notices from BaFin and the ECB. Open the source for details.</p>
+    <details class="feed-filters"><summary>Filter by source or date</summary><form class="filter-controls"><label>Filing source<select name="source"><option value="">All sources</option><option>SEC</option><option>BaFin</option><option>ECB</option></select></label><label>From date<input name="from" type="date"></label><label>To date<input name="to" type="date"></label><button type="submit">Apply filters</button><button type="reset">Clear</button></form></details>
     <!-- FEED_ITEMS -->
   </section></main>
   <script data-cfasync="false">
@@ -123,6 +144,57 @@
       language = language === 'en' ? 'de' : 'en';
       showLanguage(language);
       try { localStorage.setItem(languageKey, language); } catch (_) { /* Keep the current-visit choice. */ }
+    });
+    const feed = document.querySelector('.feed');
+    const filterForm = feed.querySelector('.filter-controls');
+    const status = feed.querySelector('.feed-status');
+    const filters = () => new URLSearchParams(new FormData(filterForm));
+    function mergeFeed(markup, replace) {
+      const parsed = document.createElement('div');
+      parsed.innerHTML = markup;
+      if (replace) feed.querySelectorAll('.feed-item, .feed-empty').forEach(item => item.remove());
+      for (const incoming of parsed.querySelectorAll('.feed-item, .feed-empty')) {
+        const key = incoming.dataset.company;
+        const existing = key ? [...feed.querySelectorAll('.company-group')].find(item => item.dataset.company === key) : null;
+        if (!existing || incoming.classList.contains('feed-empty')) { feed.insertBefore(incoming, status); continue; }
+        let details = existing.querySelector('.more-filings');
+        if (!details) {
+          details = document.createElement('details'); details.className = 'more-filings';
+          details.innerHTML = '<summary>More filings</summary><div class="filing-list"></div>';
+          existing.append(details);
+        }
+        const list = details.querySelector('.filing-list');
+        const known = new Set([...existing.querySelectorAll('.filing-entry')].map(row => row.dataset.link));
+        for (const row of incoming.querySelectorAll('.filing-entry')) if (!known.has(row.dataset.link)) list.append(row);
+        const count = existing.querySelectorAll('.filing-entry').length;
+        details.querySelector('summary').textContent = `+${count - 1} more filing${count === 2 ? '' : 's'}`;
+      }
+    }
+    let loading = false;
+    async function loadPage(offset, replace) {
+      if (loading) return;
+      loading = true;
+      status.textContent = 'Loading filings…';
+      const query = filters(); query.set('offset', String(offset));
+      try {
+        const response = await fetch(`/api/filings?${query}`, { headers: { accept: 'application/json' } });
+        if (!response.ok) throw new Error('Unable to load filings.');
+        const page = await response.json();
+        mergeFeed(page.html, replace);
+        let button = feed.querySelector('.show-more');
+        if (page.hasMore) {
+          if (!button) { button = document.createElement('button'); button.type = 'button'; button.className = 'show-more'; feed.append(button); }
+          button.dataset.offset = String(page.nextOffset); button.textContent = 'Show 20 more'; button.disabled = false;
+        } else if (button) button.remove();
+        status.textContent = '';
+      } catch (_) { status.textContent = 'Could not load filings. Please try again.'; }
+      finally { loading = false; }
+    }
+    filterForm.addEventListener('submit', event => { event.preventDefault(); loadPage(0, true); });
+    filterForm.addEventListener('reset', () => setTimeout(() => loadPage(0, true), 0));
+    feed.addEventListener('click', event => {
+      const button = event.target.closest('.show-more');
+      if (button) { button.disabled = true; loadPage(Number(button.dataset.offset), false); }
     });
   </script>
 </body>
