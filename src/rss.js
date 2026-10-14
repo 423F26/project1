@@ -172,7 +172,15 @@ function openStore(path) {
       const nextCursor = { secOffset: secOffset + selectedCompanies.length, otherOffset: otherOffset + otherRows.length };
       const secTotalCount = source === 'BaFin' || source === 'ECB' ? 0 : secCount.get(...filters).count;
       const otherTotalCount = source === 'SEC' ? 0 : otherCount.get(...filters).count;
-      return { items, nextCursor, hasMore: nextCursor.secOffset < secTotalCount || nextCursor.otherOffset < otherTotalCount };
+      let remainingSec = secTotalCount, remainingOther = otherTotalCount, totalPages = 0;
+      while (remainingSec > 0 || remainingOther > 0) {
+        const secOnPage = Math.min(8, remainingSec);
+        const otherOnPage = Math.min(Math.max(0, limit - secOnPage), remainingOther);
+        remainingSec -= secOnPage;
+        remainingOther -= otherOnPage;
+        totalPages += 1;
+      }
+      return { items, nextCursor, hasMore: nextCursor.secOffset < secTotalCount || nextCursor.otherOffset < otherTotalCount, totalPages, totalCounts: { sec: secTotalCount, other: otherTotalCount } };
     },
     close: () => db.close()
   };

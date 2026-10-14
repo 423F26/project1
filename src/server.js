@@ -99,7 +99,9 @@ function createServer(options) {
     }
     request.on('data', () => request.destroy());
     const firstPage = options.store?.page?.({ limit: 20, secOffset: 0, otherOffset: 0 }) ?? { items: options.store?.recent?.() ?? [], nextCursor: { secOffset: 0, otherOffset: 20 }, hasMore: false };
-    const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p>${firstPage.hasMore ? '<button class="show-more" type="button" data-de="20 weitere anzeigen" data-sec-offset="' + firstPage.nextCursor.secOffset + '" data-other-offset="' + firstPage.nextCursor.otherOffset + '">Show 20 more</button>' : ''}`);
+    const pageButtons = Array.from({ length: Math.min(firstPage.totalPages ?? 1, 10) }, (_, index) => `<button type="button" class="page-number" data-page="${index}"${index === 0 ? ' aria-current="page"' : ''}>${index + 1}</button>`).join('');
+    const initialCounts = firstPage.totalCounts ?? { sec: 0, other: 0 };
+    const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p><nav class="feed-pagination" aria-label="Filing pages" data-total-pages="${firstPage.totalPages ?? 1}" data-sec-count="${initialCounts.sec}" data-other-count="${initialCounts.other}"${firstPage.hasMore ? '' : ' hidden'}><button id="previous-page" type="button" aria-label="Previous page" disabled>‹</button><div class="page-numbers">${pageButtons}</div><span class="page-ellipsis" hidden>…</span><button id="next-page" type="button"><span data-de="Weiter">Next</span> ›</button></nav>`);
     reply(response, 200, html, {
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; img-src https:; script-src 'sha256-${scriptHash}'; connect-src 'self'; frame-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`

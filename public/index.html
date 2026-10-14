@@ -64,8 +64,14 @@
     .filing-list .filing-entry { padding: 8px 0; }
     .filing-list .filing-title { font: 400 17px/1.4 Arial, Helvetica, sans-serif; }
     .feed-status { min-height: 1.6em; padding-top: 12px; color: var(--muted); }
-    .show-more { display: block; min-height: 0; margin: 10px auto 0; padding: 8px; border: 0; border-radius: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; }
-    .show-more:hover { background: transparent; color: #fff; }
+    .feed-pagination { display: flex; justify-content: center; align-items: center; gap: 16px; padding: 16px 0 28px; color: var(--muted); }
+    .feed-pagination[hidden] { display: none; }
+    .page-numbers { display: flex; align-items: center; gap: 6px; }
+    .feed-pagination button { min-width: 28px; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 4px; color: var(--accent); background: transparent; }
+    .feed-pagination button:hover:not(:disabled) { background: transparent; color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+    .feed-pagination button:disabled { color: #777; cursor: default; }
+    .feed-pagination .page-number[aria-current="page"] { color: var(--text); cursor: default; }
+    .page-ellipsis { color: var(--muted); }
     .feed-empty { padding: 32px 0; border-bottom: 1px solid var(--separator); }
     @media (max-width: 760px) {
       body { padding: 24px; }
@@ -149,53 +155,74 @@
     const filterForm = feed.querySelector('.filter-controls');
     const status = feed.querySelector('.feed-status');
     const filters = () => new URLSearchParams(new FormData(filterForm));
-    function mergeFeed(markup, replace) {
+    function mergeFeed(markup) {
       const parsed = document.createElement('div');
       parsed.innerHTML = markup;
-      if (replace) feed.querySelectorAll('.feed-item, .feed-empty').forEach(item => item.remove());
+      feed.querySelectorAll('.feed-item, .feed-empty').forEach(item => item.remove());
       for (const incoming of parsed.querySelectorAll('.feed-item, .feed-empty')) {
-        const key = incoming.dataset.company;
-        const existing = key ? [...feed.querySelectorAll('.company-group')].find(item => item.dataset.company === key) : null;
-        if (!existing || incoming.classList.contains('feed-empty')) { feed.insertBefore(incoming, status); continue; }
-        let details = existing.querySelector('.more-filings');
-        if (!details) {
-          details = document.createElement('details'); details.className = 'more-filings';
-          details.innerHTML = '<summary>More filings</summary><div class="filing-list"></div>';
-          existing.append(details);
-        }
-        const list = details.querySelector('.filing-list');
-        const known = new Set([...existing.querySelectorAll('.filing-entry')].map(row => row.dataset.link));
-        for (const row of incoming.querySelectorAll('.filing-entry')) if (!known.has(row.dataset.link)) list.append(row);
-        const count = existing.querySelectorAll('.filing-entry').length;
-        details.querySelector('summary').textContent = `+${count - 1} more filing${count === 2 ? '' : 's'}`;
+        feed.insertBefore(incoming, status);
       }
     }
     let loading = false;
-    async function loadPage(cursor, replace) {
+    let pageIndex = 0;
+    const pagination = feed.querySelector('.feed-pagination');
+    let pageInfo = { totalPages: Number(pagination.dataset.totalPages || 1), totalCounts: { sec: Number(pagination.dataset.secCount || 0), other: Number(pagination.dataset.otherCount || 0) } };
+    function cursorForPage(targetIndex) {
+      let secOffset = 0, otherOffset = 0;
+      for (let index = 0; index < targetIndex; index += 1) {
+        const secOnPage = Math.min(8, Math.max(0, pageInfo.totalCounts.sec - secOffset));
+        const otherOnPage = Math.min(Math.max(0, 20 - secOnPage), Math.max(0, pageInfo.totalCounts.other - otherOffset));
+        secOffset += secOnPage;
+        otherOffset += otherOnPage;
+      }
+      return { secOffset, otherOffset };
+    }
+    function drawPagination() {
+      const previous = pagination.querySelector('#previous-page');
+      const next = pagination.querySelector('#next-page');
+      const numbers = pagination.querySelector('.page-numbers');
+      const total = pageInfo.totalPages;
+      const start = Math.max(0, Math.min(pageIndex - 4, total - 10));
+      const end = Math.min(total, start + 10);
+      numbers.innerHTML = Array.from({ length: Math.max(0, end - start) }, (_, offset) => {
+        const index = start + offset;
+        const current = index === pageIndex;
+        return `<button type="button" class="page-number" data-page="${index}"${current ? ' aria-current="page" aria-label="Page ' + (index + 1) + ', current page"' : ' aria-label="Page ' + (index + 1) + '"'}>${index + 1}</button>`;
+      }).join('');
+      previous.disabled = pageIndex === 0;
+      next.hidden = pageIndex >= total - 1;
+      pagination.querySelector('.page-ellipsis').hidden = end >= total;
+      pagination.hidden = total <= 1;
+    }
+    async function loadPage(targetIndex) {
       if (loading) return;
       loading = true;
       status.textContent = language === 'de' ? 'Berichte werden geladen…' : 'Loading filings…';
+      const cursor = cursorForPage(targetIndex);
       const query = filters(); query.set('secOffset', String(cursor.secOffset)); query.set('otherOffset', String(cursor.otherOffset));
       try {
         const response = await fetch(`/api/filings?${query}`, { headers: { accept: 'application/json' } });
         if (!response.ok) throw new Error('Unable to load filings.');
         const page = await response.json();
-        mergeFeed(page.html, replace);
-        let button = feed.querySelector('.show-more');
-        if (page.hasMore) {
-          if (!button) { button = document.createElement('button'); button.type = 'button'; button.className = 'show-more'; button.dataset.de = '20 weitere anzeigen'; feed.append(button); }
-          button.dataset.secOffset = String(page.nextCursor.secOffset); button.dataset.otherOffset = String(page.nextCursor.otherOffset); button.textContent = language === 'de' ? button.dataset.de : 'Show 20 more'; button.disabled = false;
-        } else if (button) button.remove();
+        mergeFeed(page.html);
+        pageInfo = { totalPages: page.totalPages || 1, totalCounts: page.totalCounts || { sec: 0, other: 0 } };
+        pageIndex = targetIndex;
+        drawPagination();
         status.textContent = '';
+        if (targetIndex > 0) feed.querySelector('.feed-heading').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (_) { status.textContent = language === 'de' ? 'Berichte konnten nicht geladen werden. Bitte erneut versuchen.' : 'Could not load filings. Please try again.'; }
       finally { loading = false; }
     }
-    filterForm.addEventListener('submit', event => { event.preventDefault(); loadPage({ secOffset: 0, otherOffset: 0 }, true); });
-    filterForm.addEventListener('reset', () => setTimeout(() => loadPage({ secOffset: 0, otherOffset: 0 }, true), 0));
-    feed.addEventListener('click', event => {
-      const button = event.target.closest('.show-more');
-      if (button) { button.disabled = true; loadPage({ secOffset: Number(button.dataset.secOffset), otherOffset: Number(button.dataset.otherOffset) }, false); }
+    filterForm.addEventListener('submit', event => { event.preventDefault(); pageIndex = 0; loadPage(0); });
+    filterForm.addEventListener('reset', () => setTimeout(() => { pageIndex = 0; loadPage(0); }, 0));
+    pagination.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button || button.disabled || button.hidden) return;
+      if (button.id === 'previous-page') loadPage(pageIndex - 1);
+      else if (button.id === 'next-page') loadPage(pageIndex + 1);
+      else if (button.matches('.page-number')) loadPage(Number(button.dataset.page));
     });
+    drawPagination();
   </script>
 </body>
 </html>
