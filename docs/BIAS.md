@@ -1,6 +1,6 @@
 # Financial bias: definition and analysis scope
 
-This document records the team’s agreed scope for the future analysis model. It does not describe an implemented capability. The planned report has three separate sections: a bias review with one overall bias score, a financial risk profile made of separate indicators, and a “What changed” comparison between filings. Risk indicators and filing changes do not contribute to the bias score. The scoring constants are product choices requiring calibration against reviewed examples, not a validated statistical measure.
+This document records the team’s agreed scope for the future analysis model. It does not describe an implemented capability. The goal is to help readers understand a company from a concise, evidence-linked briefing rather than make them piece together many filings themselves. The report combines the company’s current picture and a filing-to-filing comparison in one “What changed” section, alongside a separate bias review with one overall bias score and a financial risk profile made of separate indicators. Risk indicators and filing changes do not contribute to the bias score. The scoring constants are product choices requiring calibration against reviewed examples, not a validated statistical measure.
 
 ## Definition
 
@@ -12,7 +12,7 @@ The definition synthesizes [IFRS neutrality guidance, paragraph 2.15](https://ww
 
 Serve finance professionals and people investing in their free time. Explain language for someone with no finance background while preserving the figures, terminology, qualifications, and detail useful to professionals.
 
-For the bias review, use evidence within the reviewed document. Check relevant passages, tables, notes, definitions, and explanations across it before flagging a problem. A “What changed” comparison may use a second filing for context, but a change by itself does not establish bias or risk. Cite both filings and their reporting periods. Research sources in this file justify the analysis rules; they are not external evidence used to assess individual documents.
+Ground the briefing and analyses in the reviewed filing set. The bias score describes the reviewed set, not the company as a whole. Check relevant passages, tables, notes, definitions, and explanations within each reviewed filing before flagging a problem. When multiple filings are available, compare relevant, reasonably comparable periods to identify patterns, inconsistencies, or changes in framing that may not be apparent in one filing. Cite each filing and reporting period supporting a cross-filing finding, and account for changes in scope, accounting policies, estimates, and other stated explanations. A difference or change alone does not establish bias or risk. If only one filing is reviewed, assess it on its own and state that limitation. Do not imply a complete view of the company beyond the documents and periods actually reviewed. Research sources in this file justify the analysis rules; they are not external evidence used to assess individual documents.
 
 - A factual claim has support when relevant figures, identifiable attribution, or reasoning connect evidence to the claim. Support may appear elsewhere in the document.
 - Recognize an external citation as attributed support; do not imply its contents were retrieved or verified. Distinguish attribution from independent corroboration.
@@ -31,9 +31,11 @@ For the bias review, use evidence within the reviewed document. Check relevant p
 
 Label each qualifying finding **supported finding** when the document supplies a demonstrable basis, or **potential concern** when the interpretation remains ambiguous. Explain the uncertainty. Unsupported claims can be supported findings of missing substantiation without being findings of falsity.
 
+Apply these same detection rules across the reviewed filing set. Cross-filing evidence may strengthen or clarify a finding, but do not treat ordinary changes as bias without evidence of problematic framing, missing support, or unresolved inconsistency. Group repeated or related evidence of one underlying issue into a single finding and penalty; cite all relevant passages and filings rather than scoring the same issue once per filing. Keep filing-to-filing changes visible in “What changed” even when they do not qualify as bias.
+
 ## Bias score
 
-Use one overall bias score: 100 means least detected bias; 0 means most. This score measures presentation and disclosure concerns only; financial risk indicators and changes between filings do not affect it. No document-length adjustment applies. Rate each distinct qualifying issue on three equally weighted factors:
+Use one overall bias score for the reviewed filing set: 100 means least detected bias; 0 means most. This score measures presentation and disclosure concerns found in that set only; financial risk indicators and changes between filings do not affect it by themselves. No document-length adjustment applies. Rate each distinct qualifying issue on three equally weighted factors:
 
 | Factor | 0 | 1 | 2 | 3 |
 | --- | --- | --- | --- | --- |
@@ -69,7 +71,7 @@ overall bias score = round(max(0, 100 − total penalty))
 | The same issue with materially prominent repetition | 25 |
 | One potential concern rated 3 on all factors | 70 |
 
-Withhold the bias score for summary-only reviews and incomplete full-document reviews, including missing pages, unreadable scans, or uninterpretable tables. Still summarize available material and flag supported problems and potential concerns within it. State the coverage limits; do not treat missing analysis as evidence of neutrality.
+Withhold the bias score for summary-only reviews and incomplete full-document reviews, including missing pages, unreadable scans, or uninterpretable tables. Still summarize available material and flag supported problems and potential concerns within it. State which filings and periods were reviewed and any coverage limits; do not treat missing analysis as evidence of neutrality. A one-filing review may receive a score if that filing is reviewed in full, but label the score as based on that filing alone.
 
 ## Financial risk profile
 
@@ -79,12 +81,12 @@ For each indicator, show the reported or calculated value, unit, reporting perio
 
 ## “What changed” across filings
 
-Compare the selected filing with a prior filing for the same company. Identify both filings and their reporting periods. Highlight meaningful changes in financial figures, segment results, risk disclosures, accounting policies or estimates, and management explanations when supported by the documents. Link each observation to the relevant passage or table in both filings where possible. Distinguish reported changes from interpretation: a change alone does not establish bias, increased risk, or its cause, and it does not alter either the bias score or the separate risk indicators automatically.
+Begin with a concise picture of the company based on the selected filing: what it does, how it generates revenue, its main business segments, recent financial performance and position, and its most significant disclosed uncertainties. Then compare that filing with a prior filing for the same company. Identify both filings and their reporting periods. Highlight meaningful changes in financial figures, segment results, risk disclosures, accounting policies or estimates, and management explanations when supported by the documents. Distinguish company-reported statements from calculated metrics and interpretation. Include key figures with units, period labels, and links to source passages or tables; state what information or periods are missing. Link each comparison to the relevant passage or table in both filings where possible. A change alone does not establish bias, increased risk, or its cause, and it does not alter either the bias score or the separate risk indicators automatically. Do not present this section as a complete account of the company or as an investment recommendation.
 
 ## Reading flow and future collection
 
-1. Provide a plain-English summary: what happened, important figures or claims, why it matters, and risks or uncertainties stated in the source. Preserve qualifications and distinguish attributed claims from established facts.
-2. Present the **Bias review**, **Financial risk profile**, and **What changed** as distinct sections. Show one bias score only when eligible, with review limits and each finding’s contribution. Keep risk indicators separate and explain the comparison filing used for changes.
+1. Present **What changed** first. It opens with the company’s current picture from the selected filing, then compares that filing with the prior filing. Preserve qualifications; distinguish reported facts, calculated metrics, and interpretation.
+2. Present **Bias review** and **Financial risk profile** as supporting sections in the same report. Show one bias score only when eligible, with review limits and each finding’s contribution. Keep risk indicators separate, cite the filings used for comparisons, and state the review’s coverage limits. Do not make users navigate tabs to see the main analysis.
 3. Preserve the original document’s layout, tables, and page references. Highlight exact sections and connect them to explanations. Distinguish supported findings from potential concerns using explicit labels, not color alone.
 
 Keep original text in its source language. Summaries and explanations follow the selected website language. Cover both English and German source documents.
