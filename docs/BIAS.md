@@ -1,6 +1,6 @@
 # Financial bias: definition and analysis scope
 
-This document records the team’s agreed scope for the future analysis model. It does not describe an implemented capability. The scoring constants are product choices requiring calibration against reviewed examples, not a validated statistical measure.
+This document records the team’s agreed scope for the future analysis model. It does not describe an implemented capability. The planned report has three separate sections: a bias review with one overall bias score, a financial risk profile made of separate indicators, and a “What changed” comparison between filings. Risk indicators and filing changes do not contribute to the bias score. The scoring constants are product choices requiring calibration against reviewed examples, not a validated statistical measure.
 
 ## Definition
 
@@ -12,7 +12,7 @@ The definition synthesizes [IFRS neutrality guidance, paragraph 2.15](https://ww
 
 Serve finance professionals and people investing in their free time. Explain language for someone with no finance background while preserving the figures, terminology, qualifications, and detail useful to professionals.
 
-Use only evidence within the reviewed document. Check relevant passages, tables, notes, definitions, and explanations across the document before flagging a problem. Research sources in this file justify the analysis rules; they are not external evidence used to assess individual documents.
+For the bias review, use evidence within the reviewed document. Check relevant passages, tables, notes, definitions, and explanations across it before flagging a problem. A “What changed” comparison may use a second filing for context, but a change by itself does not establish bias or risk. Cite both filings and their reporting periods. Research sources in this file justify the analysis rules; they are not external evidence used to assess individual documents.
 
 - A factual claim has support when relevant figures, identifiable attribution, or reasoning connect evidence to the claim. Support may appear elsewhere in the document.
 - Recognize an external citation as attributed support; do not imply its contents were retrieved or verified. Distinguish attribution from independent corroboration.
@@ -31,9 +31,9 @@ Use only evidence within the reviewed document. Check relevant passages, tables,
 
 Label each qualifying finding **supported finding** when the document supplies a demonstrable basis, or **potential concern** when the interpretation remains ambiguous. Explain the uncertainty. Unsupported claims can be supported findings of missing substantiation without being findings of falsity.
 
-## Overall score
+## Bias score
 
-Use one overall score: 100 means least detected bias; 0 means most. No document-length adjustment applies. Rate each distinct qualifying issue on three equally weighted factors:
+Use one overall bias score: 100 means least detected bias; 0 means most. This score measures presentation and disclosure concerns only; financial risk indicators and changes between filings do not affect it. No document-length adjustment applies. Rate each distinct qualifying issue on three equally weighted factors:
 
 | Factor | 0 | 1 | 2 | 3 |
 | --- | --- | --- | --- | --- |
@@ -51,7 +51,7 @@ issue penalty = base penalty × evidence multiplier × repetition multiplier
 
 total penalty = min(15, sum of minor issue penalties)
                 + sum of other issue penalties
-overall score = round(max(0, 100 − total penalty))
+overall bias score = round(max(0, 100 − total penalty))
 ```
 
 - Evidence multiplier: 1 for supported findings; 0.5 for potential concerns.
@@ -61,7 +61,7 @@ overall score = round(max(0, 100 − total penalty))
 - Keep intermediate values unrounded; round only the final score, with halves rounded upward.
 - Potential concerns have no separate combined cap: several may reduce the score to 0. Make their uncertainty visible beside the score.
 
-| Calibration example | Score |
+| Calibration example | Bias score |
 | --- | --- |
 | Complete review with no qualifying findings | 100 |
 | Only minor issues, after their combined cap is reached | 85 |
@@ -69,13 +69,23 @@ overall score = round(max(0, 100 − total penalty))
 | The same issue with materially prominent repetition | 25 |
 | One potential concern rated 3 on all factors | 70 |
 
-Withhold the score for summary-only reviews and incomplete full-document reviews, including missing pages, unreadable scans, or uninterpretable tables. Still summarize available material and flag supported problems and potential concerns within it. State the coverage limits; do not treat missing analysis as evidence of neutrality.
+Withhold the bias score for summary-only reviews and incomplete full-document reviews, including missing pages, unreadable scans, or uninterpretable tables. Still summarize available material and flag supported problems and potential concerns within it. State the coverage limits; do not treat missing analysis as evidence of neutrality.
+
+## Financial risk profile
+
+Show company-level financial exposures separately from the bias score. This is not an investor suitability rating or a buy/sell recommendation. Do not combine indicators into a second overall risk score in this version. Where the filing provides enough information, organize indicators under liquidity and obligations, leverage and debt, cash flow, and market exposures such as interest-rate, currency, or other price risk. These categories are consistent with the risk disclosures described in [IFRS 7](https://www.ifrs.org/issued-standards/list-of-standards/ifrs-7-financial-instruments-disclosures/).
+
+For each indicator, show the reported or calculated value, unit, reporting period, definition or formula, and source passage or table. Mark unavailable information as unavailable rather than implying low risk. Explain that ratios may not be comparable across industries, reporting periods, or accounting frameworks. A risk exposure is not itself evidence of biased presentation.
+
+## “What changed” across filings
+
+Compare the selected filing with a prior filing for the same company. Identify both filings and their reporting periods. Highlight meaningful changes in financial figures, segment results, risk disclosures, accounting policies or estimates, and management explanations when supported by the documents. Link each observation to the relevant passage or table in both filings where possible. Distinguish reported changes from interpretation: a change alone does not establish bias, increased risk, or its cause, and it does not alter either the bias score or the separate risk indicators automatically.
 
 ## Reading flow and future collection
 
 1. Provide a plain-English summary: what happened, important figures or claims, why it matters, and risks or uncertainties stated in the source. Preserve qualifications and distinguish attributed claims from established facts.
-2. Show the overall score when eligible, the review’s limits, and what readers should look out for. Explain each finding and its contribution to the score.
-3. Preserve the original document’s layout, tables, and page references. Highlight exact sections and connect them to side-panel explanations. Distinguish supported findings from potential concerns using explicit labels, not color alone.
+2. Present the **Bias review**, **Financial risk profile**, and **What changed** as distinct sections. Show one bias score only when eligible, with review limits and each finding’s contribution. Keep risk indicators separate and explain the comparison filing used for changes.
+3. Preserve the original document’s layout, tables, and page references. Highlight exact sections and connect them to explanations. Distinguish supported findings from potential concerns using explicit labels, not color alone.
 
 Keep original text in its source language. Summaries and explanations follow the selected website language. Cover both English and German source documents.
 
