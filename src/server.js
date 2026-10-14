@@ -52,9 +52,7 @@ function renderFeed(items) {
       const item = group.item;
       const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(item.published_at.slice(0, 10))}</time>` : '';
       const heading = item.title;
-      const action = `<a class="open-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">Open update<span class="visually-hidden"> (opens in a new tab)</span></a>`;
-      const excerpt = item.excerpt ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : '';
-      return `<article class="feed-item" data-publisher="${escapeHtml(item.publisher)}"><div class="meta"><span class="publisher">${escapeHtml(item.publisher)}</span>${date}</div><h3><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a></h3>${action}${excerpt}</article>`;
+      return `<article class="feed-item" data-publisher="${escapeHtml(item.publisher)}"><div class="meta"><span class="publisher">${escapeHtml(item.publisher)}</span>${date}</div><h3><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a></h3></article>`;
     }
     return `<article class="feed-item company-group" data-publisher="SEC" data-company="${escapeHtml(group.company.toLocaleLowerCase())}"><div class="meta"><span class="publisher">SEC</span></div>${filingEntry(group.filings[0], group.company, true)}${group.filings.length > 1 ? `<details class="more-filings"><summary>+${group.filings.length - 1} more filing${group.filings.length === 2 ? '' : 's'}</summary><div class="filing-list">${group.filings.slice(1).map((item) => filingEntry(item, group.company)).join('')}</div></details>` : ''}</article>`;
   }).join('');
