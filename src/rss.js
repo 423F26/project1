@@ -227,8 +227,8 @@ function startCollector(store, { fetcher = fetch, now = () => new Date(), schedu
       for (const [publisher, url] of sources) {
         try {
           const userAgent = publisher === 'SEC'
-            ? 'FinancialBiasDetector/0.0.1 (charles.smith26@student.montana.edu)'
-            : 'FinancialBiasDetector/0.0.1';
+            ? 'FinancialBiasDetector/0.2.0 (charles.smith26@student.montana.edu)'
+            : 'FinancialBiasDetector/0.2.0';
           const xml = await fetchXml(url, userAgent, fetcher);
           store.save(parseFeed(xml, url, publisher, now().toISOString()));
         } catch (error) { logger.error(`RSS refresh failed for ${url}: ${error.message}`); }

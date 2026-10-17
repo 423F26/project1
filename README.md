@@ -1,8 +1,10 @@
-# Unnamed Financial Bias Detector 
+# Financial review
+
+Version **0.2.0**. Browse saved SEC filings and BaFin/ECB updates, with source/date filters and numbered pages. English/German page labels are available; some generated feed labels remain English. Company search and bias analysis are planned.
 
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
-[Webapp Link](https://esof423.csit.help)
+[Web app (Cloudflare Access sign-in)](https://esof423.csit.help)
 
 ## Project Authors
 
@@ -15,12 +17,14 @@
 
 [Operations](docs/OPERATIONS.md)
 
+[Architecture](docs/ARCHITECTURE.md) · [Planned bias analysis](docs/BIAS.md)
+
 [Agents](docs/agents/AGENTS.md) · [Design language](docs/agents/DESIGN.md)
 
 ## Local Deployment & Security
 
-Run `npm ci` and `npm run dev`. Open https://localhost:8443. See [Operations](docs/OPERATIONS.md) for details.
+Install Node.js 22.13+, npm, and OpenSSL. Run `npm ci` and `npm run dev`. Open `https://localhost:8443`. See [Operations](docs/OPERATIONS.md) for setup and configuration.
 
 With Docker Compose, HTTPS is published at `127.0.0.1:19283`.
 
-The container is unprivileged and capability-free, with a writable volume only for its RSS database. Its defaults are limited to 0.25 CPU, 128 MiB memory, 32 PIDs, and 10 requests per minute per source address.
+The app container runs unprivileged with all Linux capabilities dropped. It can write to its RSS volume and temporary storage. Defaults: 0.25 CPU, 128 MiB memory, 32 processes, and 10 requests/minute per direct socket source address. A separate initialization service runs as root to set volume ownership.

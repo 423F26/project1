@@ -1,50 +1,50 @@
 # Architecture
 
-Follow the [Repository guide](agents/AGENTS.md), [Ponytail](agents/PONYTAIL.md), and [Design](agents/DESIGN.md) on every pass.
+The app serves a filing-search prototype and a working feed of saved financial updates. Company search, full-document retrieval, and [bias analysis](BIAS.md) are not implemented.
 
-## Shape
+## Main parts
 
-```text
-Internet → Cloudflare Access → Cloudflare Tunnel → 127.0.0.1:19283 → Compose container → src/server.js
-```
+| File | Role |
+| --- | --- |
+| [src/server.js](../src/server.js) | HTTPS requests, security checks, feed rendering, and JSON responses |
+| [src/rss.js](../src/rss.js) | Eight fixed feeds, hourly collection, XML parsing, and SQLite storage |
+| [public/index.html](../public/index.html) | Layout, styles, language toggle, feed filters, and pagination |
+| [src/dev.js](../src/dev.js) | Local server and development certificates |
+| [compose.yaml](../compose.yaml) / [Dockerfile](../Dockerfile) | Deployment, storage ownership, and container limits |
+| [package.json](../package.json) / [package-lock.json](../package-lock.json) | Commands, project version, and locked dependencies |
+| [test/](../test/) | Server, feed, and language checks |
 
-The service has one persistent SQLite RSS store. `GET /` returns the Financial Bias Detector HTML document with the first filtered feed page. Same-origin `GET /api/filings` returns later pages or filtered results as JSON; validation errors remain plaintext.
+## Request flow
 
-## Landmarks
+Deployment path: visitor → Cloudflare Access → Cloudflare Tunnel → `127.0.0.1:19283` → container → HTTPS server. See [Operations](OPERATIONS.md) for setup.
 
-| Location | Purpose | Change carefully when |
-| --- | --- | --- |
-| [docs/agents/](agents/AGENTS.md) | Canonical workflow, Ponytail philosophy, and design language | Changing contributor guidance or UI contracts |
-| [src/server.js](../src/server.js) | HTTPS server, validation, headers, timeouts, rate limiting | Changing request behavior or security controls |
-| [src/rss.js](../src/rss.js) | Fixed feed list, hourly collector, XML parsing, SQLite persistence | Changing ingestion or storage |
-| [public/index.html](../public/index.html) | Interface template, inline styles, one inline language script | Changing the UI |
-| [src/dev.js](../src/dev.js) | Local development entry point with automatic certificates and loopback binding | Changing developer setup; reuses `createServer` |
-| [compose.yaml](../compose.yaml) | RSS-volume ownership initialization, local-only port publishing, certificate mount, runtime restrictions | Changing deployment or resource limits |
-| [Dockerfile](../Dockerfile) | Minimal unprivileged Node runtime image | Changing the runtime or build inputs |
-| [package.json](../package.json) | Commands and release version | Releasing or adding a development command |
-| [test/configuration.test.js](../test/configuration.test.js) | Endpoint and host-validation checks | Changing server behavior |
+The server checks requests in this order:
 
-## Request contract
+1. Rate limit: excess requests return `429`.
+2. Allowed hostname: an unknown host returns `421`.
+3. Method: anything except `GET` returns `405`.
+4. Route and input:
+   - `/` without a query returns the first feed page as HTML.
+   - `/api/filings` returns rendered feed HTML, items, counts, and pagination data as JSON. Invalid filters return `400`.
+   - Other paths, or a query on `/`, return `404`.
+   - Both supported routes reject a nonzero `Content-Length` or any transfer encoding with `413`.
 
-```text
-TLS 1.2+ request
-  ├─ known Host?            no → 421
-  ├─ below rate limit?      no → 429
-  ├─ GET?                  no → 405
-  ├─ `GET /` or `/api/filings`? no → 404
-  ├─ empty body?           no → 413
-  └─ return HTML           yes → 200
-```
+The feed API accepts `source` (empty, `SEC`, `BaFin`, or `ECB`), inclusive `from`/`to` dates (`YYYY-MM-DD`), and separate `secOffset`/`otherOffset` cursors (integers from 0 to 1,000,000).
 
-`src/server.js` does not trust forwarded client-IP headers. Its local rate limit uses the direct socket address, which is intentional: Cloudflare Access and the tunnel/firewall enforce the real network boundary.
+## Feed and page behavior
 
-## Security invariants
+Sources are the U.S. Securities and Exchange Commission (SEC), Germany's financial regulator (BaFin), and the European Central Bank (ECB). The collector reads three SEC, two BaFin, and three ECB feeds at startup and hourly. It skips overlapping refreshes. SQLite, a database stored in one file, holds metadata and excerpts; repeated source/item IDs update existing rows. Display queries remove duplicate links. Failed feeds leave saved data intact; history is never pruned automatically.
 
-- TLS key and certificate paths are mandatory at startup.
-- `ALLOWED_HOSTS` is mandatory and exact-match only.
-- No cookies, CORS, or request-body parsing exists. The root document includes a visual U.S./Germany filing-market choice and native search fields; the choice and Search button remain inert. RSS is collected by the backend only; visitors can filter the saved feed by publisher and date through a validated JSON endpoint, and page through results in groups of 20.
-- The single inline script changes only translated page text, accessible labels, and `<html lang>`; it saves `en` or `de` under `pageLanguage` in browser local storage when available. It does not change the selected filing market, entered text, filters, or publisher text. Its `data-cfasync="false"` attribute keeps Cloudflare Rocket Loader from intercepting it.
-- The collector fetches only the eight fixed publisher URLs. Entries are deduplicated in SQLite; SEC company and form metadata is stored when provided and rendered with escaped text and HTTPS links. The homepage groups SEC filings by company, provides individual filing links with form, timestamp, and accession details, limits each results page to eight SEC company groups, and includes all matching saved filings within each selected group. Date/source filters and pagination only read saved data; they never request publisher feeds. A one-shot Compose service assigns the `/data` volume to the `node` user before the read-only, unprivileged application container starts. Failed feeds do not erase previously saved entries.
-- The service rejects bodies and transfer encodings, caps header size/count and keep-alive work, and returns plaintext errors. Its HTML response has a restrictive CSP with a SHA-256 hash for that inline script and same-origin connections for the feed endpoint, HSTS, and `Referrer-Policy: no-referrer`. The other CSP restrictions remain in place.
+Each page has up to 20 display entries, including at most eight SEC company groups. Each group includes all its matching filings, so a page may contain more than 20 filing links. The latest filing is shown first; additional filings are collapsed. BaFin and ECB entries show a linked title, publisher, and available date. Filters and page changes read saved data only and replace the displayed results.
 
-Preserve these invariants unless the change is explicitly approved and documented here. Human maintainers own the [Agile workbook](agile/AGILE_ARTIFACTS.xlsx); agents leave Agile records untouched.
+One inline script controls English/German labels and feed requests. It preserves entered values and selections, saves `pageLanguage` when browser storage permits, and leaves publisher text in its source language. Some generated labels remain English; see [Operations](OPERATIONS.md#using-the-page).
+
+## Security boundary
+
+- TLS 1.2+, certificate/key paths, and an exact hostname allowlist are required. Rate limits use the direct socket address and ignore forwarded IP headers; tunnel users may share one limit.
+- There are no cookies, CORS access, or request-body parsing. Headers, request time, and connection reuse are limited; errors are plaintext.
+- Feed fetches use fixed publisher URLs, a 10-second timeout, a 2 MiB limit, and HTTPS redirects restricted to the original host. Unsafe XML is rejected. Displayed text is escaped and filing links require HTTPS.
+- HTML uses a restrictive Content Security Policy (CSP): the single inline script is allowed by its SHA-256 hash, feed requests stay on the same origin, and forms/frames are blocked. HSTS requires future HTTPS visits; referrer headers are disabled.
+- The app container runs as `node`, with all Linux capabilities dropped and a read-only filesystem except its RSS volume and temporary storage. A separate root initialization service sets volume ownership.
+
+Follow the [Repository guide](agents/AGENTS.md) when changing these boundaries.

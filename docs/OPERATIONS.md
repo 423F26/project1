@@ -1,73 +1,64 @@
 # Operations
 
-## Local development (without Docker)
+## Run locally
 
-Install Node.js 22.13+ (with npm) and OpenSSL, run `npm ci`, then run `npm run dev` from the repository directory. No `.env` setup is needed for development.
-
-Open https://localhost:8443 and accept the self-signed development certificate warning. The server binds only to `127.0.0.1` and restarts when its JavaScript files change. Stop it with Ctrl+C. To check the endpoint from a terminal, run `curl -k https://localhost:8443/`; expect the Financial Bias Detector HTML document.
-
-The command creates and reuses a one-year certificate in ignored `certs/dev/`, separate from deployment certificates. Delete `certs/dev/` and restart to regenerate an expired certificate. Set `PORT` to use a different local port when 8443 is occupied (for example, `PORT=8765 npm run dev`). The same HTTPS server and request protections apply, including the 10 requests/minute limit.
-
-The [Refined Reading desk](agents/DESIGN.md) interface is a static filing-search prototype above a “Recent Filings” feed of company filings and regulatory updates. SEC filings are grouped by company while each title links directly to its filing; grouped entries include readable form, filed date/time, and accession details. Each page includes at most eight SEC company groups and retains all matching filings within each group. Other sources show only their linked article title, publisher, and date; excerpts and secondary action links are omitted. The compact source/date filter and numbered pagination controls query saved entries through the same-origin `/api/filings` endpoint, with up to 20 display entries per page. Selecting a page replaces the current entries. These controls do not change the static company-search prototype or add bias scores.
-
-The backend fetches three ECB, two BaFin, and three SEC feeds once at startup and every 60 minutes thereafter. Page visits and feed filters read saved entries and never trigger publisher requests. Each page shows up to 20 display entries, with a limit of eight SEC company groups per page; every qualifying filing for those selected companies is included in its group, and pagination tracks SEC groups separately from other sources so no records are skipped. Numbered controls support direct page selection, previous/next navigation, and replace the current page's entries. Source and inclusive date filters apply to the full saved database. A source failure leaves saved entries available; if the database has no entries yet, the page shows an empty message. Polling hourly can miss items that rotate out of a feed between polls; SEC documents that its listed feeds contain a limited set of recent filings. Feed text remains in its published language. Development data lives in ignored `data/rss.sqlite`; delete that file to reset local RSS history.
-
-The `🇩🇪 Deutsch`/`🇺🇸 English` button switches page text immediately and updates the document language. The page starts in English unless `pageLanguage` is saved as `de` in browser local storage. Clearing that key restores English on the next visit; if storage is blocked, the button still works until the page closes. Language switching leaves entered search text, selected options, the filing-market display, and the live feed text in place; feed text remains in the publisher's language while link actions are translated. The server allows the page's one inline language script by its SHA-256 CSP hash and keeps the other CSP restrictions.
-
-Cloudflare Rocket Loader must leave the inline language script alone; its `data-cfasync="false"` attribute opts that script out. Do not allow Rocket Loader or analytics scripts through the CSP just to make the toggle work.
-
-## Compose deployment
+Install Node.js 22.13 or newer, npm, and OpenSSL. From the repository directory:
 
 ```powershell
-Copy-Item .env.example .env
-# Put the Cloudflare Origin CA certificate in certs/tls.crt and its private key in certs/tls.key.
-docker compose up --build -d
+npm ci
+npm run dev
 ```
 
-`compose.yaml` binds the service only to `127.0.0.1:19283`. A Cloudflare Tunnel should connect to `https://127.0.0.1:19283`, validate the origin certificate, and send the public hostname in `Host`.
+Open `https://localhost:8443` and accept the local self-signed certificate warning. The server listens only on `127.0.0.1`, restarts when loaded JavaScript files change, and stops with Ctrl+C. Check the HTML response with `curl.exe -k https://localhost:8443/` on Windows.
 
-Compose stores RSS entries in the `rss_data` named volume mounted at `/data`. Preserve this volume across container rebuilds to retain feed history. The application keeps all fetched entries and does not prune them automatically. The container needs outbound HTTPS access to the eight publisher feeds. Only SEC requests identify the project with `charles.smith26@student.montana.edu` in the User-Agent.
+Development needs no `.env`. It creates a one-year certificate in ignored `certs/dev/` and a database at `data/rss.sqlite`. With the server stopped, delete `certs/dev/` to replace an expired certificate, or delete `data/rss.sqlite` to erase local feed history. To change the port in PowerShell, run `$env:PORT = '8765'` before `npm run dev`.
 
-Before the application starts, the one-shot `rss-data-init` service assigns the volume contents to the unprivileged `node` user. This also repairs ownership on volumes created by an older deployment. The service exits after initialization; the application container itself still runs unprivileged.
+## Using the page
+
+- **Find company filings** is a prototype: its search button does nothing. United States is selected; Germany is unavailable.
+- **Recent Filings** works. Expand the source/date filters, apply or clear them, and use numbered pages or previous/next controls. Dates include both endpoints and use the publication date, falling back to the collection date. Pages contain up to 20 entries, including at most eight SEC company groups; expand a group to see its other matching filings. Links open the original sources in new tabs.
+- **Deutsch / English** changes marked page labels and preserves inputs. English is the default; `pageLanguage=de` in browser storage restores German. If storage is blocked, the choice lasts for that visit. Publisher text stays in its source language. Generated SEC form labels, expansion text, new-tab descriptions, and some pagination labels remain English. Empty messages loaded after filtering/paging are not reapplied to the selected language.
+
+The backend collects eight feeds at startup and hourly, independently of visits. Failed sources keep saved entries. An empty database or unmatched filter shows an empty message. Hourly polling can miss entries removed by publishers between checks. Full-document retrieval and [bias analysis](BIAS.md) are planned.
+
+## Deploy with Docker Compose
+
+1. Install Docker with Compose. Copy `.env.example` to `.env` and set `ALLOWED_HOSTS=esof423.csit.help` for the documented public hostname. Use the actual hostname if deploying elsewhere; comma-separated hostnames are allowed, without schemes or ports.
+2. Put the deployment certificate in `certs/tls.crt` and its matching private key in `certs/tls.key`. Use a Cloudflare Origin CA or publicly trusted certificate covering the public hostname.
+3. Run:
+
+   ```powershell
+   docker compose up --build -d
+   docker compose ps -a
+   docker compose logs --tail=50 plaintext
+   ```
+
+4. Configure Cloudflare Access and a Tunnel to `https://127.0.0.1:19283`. Set `originServerName` and `httpHostHeader` to the certificate's public hostname. Keep TLS verification enabled; use `caPool` for a private certificate authority. See [Cloudflare's origin settings](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
+
+Compose publishes only `127.0.0.1:19283`. Keep the origin private; Cloudflare Access cannot protect a separately reachable origin. Keep Rocket Loader from handling the inline script through its `data-cfasync="false"` attribute; do not weaken CSP to admit injected scripts.
+
+The one-time `rss-data-init` service runs as root to give `node` ownership of the `rss_data` volume, then exits. The app runs unprivileged with all capabilities dropped. Limits: 0.25 CPU, 128 MiB RAM, 32 processes, read-only root filesystem, writable `/data`, and an 8 MiB restricted `/tmp`. Restart policy: `unless-stopped`.
+
+Outbound HTTPS to the fixed feeds is required. SEC requests include `charles.smith26@student.montana.edu` in the User-Agent. Feed history stays in `rss_data` across rebuilds and `docker compose down`; `docker compose down -v` erases it. There is no automatic pruning.
 
 ## Configuration
 
-| Input | Set in | Required | Notes |
-| --- | --- | --- | --- |
-| `ALLOWED_HOSTS` | `.env` | Yes | Exact public hostname; comma-separated values are allowed. |
-| `certs/tls.crt` | Host filesystem | Yes | Cloudflare Origin CA or publicly trusted certificate. |
-| `certs/tls.key` | Host filesystem | Yes | Matching private key; never commit it. |
-| `PORT` | Image environment | No | Fixed at `19283` by default. |
-| `RATE_LIMIT` | Image environment | No | Defaults to 10 requests/minute per direct source address. |
-| `RSS_DB_PATH` | Process environment | No | Defaults to `/data/rss.sqlite` in the container; development uses `data/rss.sqlite`. |
+`.env` supplies Compose substitutions; the app does not load it directly. Compose currently forwards only `ALLOWED_HOSTS` and the two TLS paths.
 
-## Runtime boundary
+| Process setting | Direct start (`npm start`) | Development (`npm run dev`) |
+| --- | --- | --- |
+| `ALLOWED_HOSTS` | Required exact hostname list | Fixed: `localhost`, `127.0.0.1` |
+| `TLS_KEY_PATH`, `TLS_CERT_PATH` | Required readable files | Generated in `certs/dev/` |
+| `PORT` | Default 8443; Docker image sets 19283 | Default 8443 |
+| `RATE_LIMIT` | Default 10 requests/minute per socket source address | Fixed at 10 |
+| `RSS_DB_PATH` | Default `/data/rss.sqlite`; parent directory must exist | Fixed at `data/rss.sqlite` |
 
-| Control | Default |
-| --- | --- |
-| Published address | `127.0.0.1:19283` |
-| User | `node` (unprivileged) |
-| Linux capabilities | All dropped |
-| Filesystem | Read-only except the `/data` RSS volume; `/tmp` is an 8 MiB restricted tmpfs |
-| CPU / memory / PIDs | 0.25 CPU / 128 MiB / 32 |
-| Restart | `unless-stopped` |
+For Docker overrides, edit the service's `environment` in [compose.yaml](../compose.yaml); a port change must also update both sides of its port mapping. The direct server binds to `0.0.0.0`; development binds to loopback. Forwarded IP headers are ignored, so tunnel users may share a rate limit. See [Architecture](ARCHITECTURE.md) for request checks.
 
-Do not change the port mapping to `0.0.0.0` unless a firewall limits inbound traffic to Cloudflare IP ranges. Cloudflare Access is an edge control and cannot protect an origin that is independently reachable.
+Never commit `.env`, certificates, private keys, or runtime data.
 
-## Release rule
+## Checks and releases
 
-`package.json` is the version source of truth. Use Semantic Versioning:
+Run `npm test` and `git diff --check`. Run `docker compose config` after Compose changes. For UI changes, check both languages, retained inputs, keyboard focus, small screens, and populated/empty feeds.
 
-- **Patch** (`0.0.1` → `0.0.2`): documentation, fixes, or hardening with no interface change.
-- **Minor** (`0.0.1` → `0.1.0`): backward-compatible configuration or behavior additions. Before `1.0.0`, use a minor increment for incompatible changes as well.
-- **Major** (`0.1.0` → `1.0.0`): the first stable release, after the endpoint, deployment, configuration, and security contract are established.
-
-Human maintainers track changes in the [Agile workbook](agile/AGILE_ARTIFACTS.xlsx); agents leave Agile records untouched. Update `package.json` when releasing.
-
-## Fast checks
-
-```powershell
-npm test
-git diff --check
-docker compose config  # when Docker is installed
-```
+The project version is **0.2.0**. Keep [package.json](../package.json), both project-version fields in [package-lock.json](../package-lock.json), and the collector User-Agent in sync. Patch releases fix or document existing behavior; minor releases add behavior and cover incompatible changes before 1.0.0; 1.0.0 marks the first stable contract. Human maintainers own the [Agile records](agile/README.md); agents leave them untouched.

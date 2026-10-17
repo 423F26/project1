@@ -1,94 +1,82 @@
-# Financial bias: definition and analysis scope
+# Financial bias: planned analysis
 
-This document records the team’s agreed scope for the future analysis model. It does not describe an implemented capability. The goal is to help readers understand a company from a concise, evidence-linked briefing rather than make them piece together many filings themselves. The report combines the company’s current picture and a filing-to-filing comparison in one “What changed” section, alongside a separate bias review with one overall bias score and a financial risk profile made of separate indicators. Risk indicators and filing changes do not contribute to the bias score. The scoring constants are product choices requiring calibration against reviewed examples, not a validated statistical measure.
+This is the team's agreed specification. The app collects feed metadata and excerpts. It does **not** retrieve full filings, run an analysis model, calculate scores, or highlight documents.
 
-## Definition
+The planned report helps finance professionals and everyday investors understand a company. Use plain explanations while keeping useful figures, terms, and qualifications. The scoring rules are product choices that still need testing against reviewed examples.
 
-Financial bias is a tendency in the selection, presentation, or explanation of financial information that obscures financially relevant meaning or steers interpretation away from a balanced assessment of the evidence provided. In this project, it includes vague or empty wording, unexplained assumptions or background knowledge, selective emphasis, unsupported factual claims, unexplained comparisons, contradictions, and unjustified certainty when these affect understanding of performance, financial condition, costs, obligations, or risk. Individual statements can be accurate while their presentation is biased. Documented financial relationships provide context about possible incentives, but do not establish biased treatment by themselves. The app evaluates observable features of documents; it does not diagnose an author’s or reader’s psychological biases. A finding identifies a supported problem or potential concern, rather than establishing dishonesty, fraud, or factual falsity. A score of 100 means no qualifying bias was detected in the reviewed document, not that its accuracy or completeness was independently verified.
+## What counts as bias?
 
-The definition synthesizes [IFRS neutrality guidance, paragraph 2.15](https://www.ifrs.org/content/dam/ifrs/publications/pdf-standards/english/2021/issued/part-a/conceptual-framework-for-financial-reporting.pdf?bypass=on), [CFA guidance on misrepresentation](https://www.cfainstitute.org/standards/professionals/code-ethics-standards/standards-of-practice-i-c), and [SEC guidance on balanced management discussion](https://www.sec.gov/rules-regulations/2003/12/commission-guidance-regarding-managements-discussion-analysis-financial-condition-results-operations). This is a project definition, not a regulatory definition.
+Financial bias is wording, selection, or presentation that hides important financial meaning or steers readers away from a balanced view of the evidence. It can affect understanding of performance, financial condition, costs, obligations, or risk, even when individual statements are accurate.
 
-## Audience and evidence boundary
+Review document features, not people's psychology. A finding does not prove dishonesty, fraud, or falsity. A score of 100 means no qualifying bias was detected in the reviewed material; it does not verify accuracy or completeness. This is a project definition, not a regulatory definition.
 
-Serve finance professionals and people investing in their free time. Explain language for someone with no finance background while preserving the figures, terminology, qualifications, and detail useful to professionals.
+## Review rules
 
-Ground the briefing and analyses in the reviewed filing set. The bias score describes the reviewed set, not the company as a whole. Check relevant passages, tables, notes, definitions, and explanations within each reviewed filing before flagging a problem. When multiple filings are available, compare relevant, reasonably comparable periods to identify patterns, inconsistencies, or changes in framing that may not be apparent in one filing. Cite each filing and reporting period supporting a cross-filing finding, and account for changes in scope, accounting policies, estimates, and other stated explanations. A difference or change alone does not establish bias or risk. If only one filing is reviewed, assess it on its own and state that limitation. Do not imply a complete view of the company beyond the documents and periods actually reviewed. Research sources in this file justify the analysis rules; they are not external evidence used to assess individual documents.
+Review relevant text, tables, notes, definitions, and explanations before flagging an issue. Support may appear elsewhere in the filing. Compare available filings and reasonably comparable periods, accounting for changes in scope, policies, estimates, and stated explanations. Cite each filing and period used. A change alone proves neither bias nor risk.
 
-- A factual claim has support when relevant figures, identifiable attribution, or reasoning connect evidence to the claim. Support may appear elsewhere in the document.
-- Recognize an external citation as attributed support; do not imply its contents were retrieved or verified. Distinguish attribution from independent corroboration.
-- A reported revenue figure may be supported by the document’s financial table. An unsupported assertion such as “industry leader” needs a stated basis; repeating it does not supply evidence.
-- Missing support does not establish that a claim is false. Identify the specific missing basis and why it matters.
-- Flag omissions demonstrable within the document: missing support for claims, unexplained comparisons, or unresolved contradictions. Do not infer undisclosed facts or relationships from outside information.
+| Check | Flag when |
+| --- | --- |
+| Unclear language | Vague or empty wording, unexplained assumptions, or missing background hides financially important meaning. Explain technical terms even when no penalty applies. |
+| Selective presentation | Emphasis, loaded language, misleading comparisons, or unjustified certainty steers interpretation. Tone alone is insufficient; balance follows evidence, not equal praise and criticism. |
+| Claims and comparisons | Claims lack a stated basis, figures conflict, or comparisons omit needed periods, benchmarks, populations, or metric definitions. Check scope differences before calling a contradiction. |
+| Predictions and opinions | They contradict the document or are presented as guaranteed. Uncertainty or missing assumptions alone does not justify a penalty for a clearly labeled prediction or opinion. |
+| Financial relationships | The document identifies ownership, pay, business ties, or other incentives. Explain these without penalizing their existence alone. Distinguish the author from the host or distributor. |
 
-## Detection rules
+Figures, named sources, or reasoning can support a claim. An external citation counts as attributed support, not independent verification. Missing support does not prove a claim false: explain what is missing and why it matters. Flag only omissions shown within the reviewed documents; do not infer undisclosed facts or relationships.
 
-- **Obscuring language:** Explain technical terms even when no penalty applies. Penalize vague wording, empty statements, or reliance on unexplained background knowledge only when financially relevant meaning is obscured. Check whether nearby text or another section supplies the explanation.
-- **Steering:** Assess selective emphasis, loaded wording, misleading comparisons, and uncertainty presented as certainty. Positive or negative tone alone does not qualify. Balance follows the evidence, not an equal count of favorable and unfavorable statements.
-- **Claims and comparisons:** Identify absent support, inconsistent figures or statements, and comparisons lacking the basis needed to interpret them, such as period, benchmark, population, or metric definition. Account for differences in scope before calling statements contradictory.
-- **Forecasts and opinions:** Do not penalize clearly labeled predictions or opinions solely because they are uncertain or lack supporting assumptions. They can still qualify when contradicted by the document or presented as guaranteed outcomes.
-- **Relationships:** Flag only documented ownership, compensation, commercial relationships, or other relevant incentives. Explain the relationship without a score penalty for its existence alone. Distinguish a document’s author from the institution hosting or distributing it. This follows [CFA’s conflict-of-interest guidance](https://www.cfainstitute.org/standards/professionals/code-ethics-standards/standards-of-practice-vi-a).
-- **Behavioral scope:** Avoid assigning psychological traits or person-dependent behavioral biases to readers or authors. Address observable framing under steering. [CFA’s behavioral-bias framework](https://www.cfainstitute.org/insights/professional-learning/refresher-readings/2026/the-behavioral-biases-of-individuals) supplies background, not a diagnostic capability.
-
-Label each qualifying finding **supported finding** when the document supplies a demonstrable basis, or **potential concern** when the interpretation remains ambiguous. Explain the uncertainty. Unsupported claims can be supported findings of missing substantiation without being findings of falsity.
-
-Apply these same detection rules across the reviewed filing set. Cross-filing evidence may strengthen or clarify a finding, but do not treat ordinary changes as bias without evidence of problematic framing, missing support, or unresolved inconsistency. Group repeated or related evidence of one underlying issue into a single finding and penalty; cite all relevant passages and filings rather than scoring the same issue once per filing. Keep filing-to-filing changes visible in “What changed” even when they do not qualify as bias.
+Label each issue **supported finding** when the documents show the problem, or **potential concern** when its interpretation is uncertain. Explain that uncertainty. A missing basis can be a supported finding without proving falsity. Group repeated or related evidence of one problem into one finding across all reviewed filings.
 
 ## Bias score
 
-Use one overall bias score for the reviewed filing set: 100 means least detected bias; 0 means most. This score measures presentation and disclosure concerns found in that set only; financial risk indicators and changes between filings do not affect it by themselves. No document-length adjustment applies. Rate each distinct qualifying issue on three equally weighted factors:
+Use one score for the reviewed filing set: **100 = least detected bias; 0 = most**. It describes those documents, not the entire company. Financial risk and filing changes do not affect it by themselves. Do not adjust for document length.
+
+Rate each distinct issue on three equally weighted factors:
 
 | Factor | 0 | 1 | 2 | 3 |
 | --- | --- | --- | --- | --- |
-| Problematic language | No obscuring wording | Slight ambiguity | Meaning substantially obscured | Essential meaning concealed or distorted |
-| Steering interpretation | No directional framing | Mild emphasis | Substantial selective framing | Strongly misleading framing |
-| Financial importance | No meaningful financial effect | Minor context | Important to understanding | Central to performance, condition, costs, obligations, or risk |
+| Unclear language | Meaning clear | Slight ambiguity | Meaning substantially obscured | Essential meaning hidden or distorted |
+| Steering | None | Mild emphasis | Substantial selective framing | Strongly misleading framing |
+| Financial importance | No meaningful effect | Minor context | Important to understanding | Central to performance, condition, costs, obligations, or risk |
 
-Financial importance concerns the issue’s effect on understanding, not the importance of its topic alone. An explanation-only technical term or relationship disclosure is not a qualifying issue. Issues with importance 0 receive no penalty.
-
-For each qualifying issue:
+Financial importance measures the effect on understanding, not the topic's importance alone. Importance 0 means no penalty. Explaining a technical term or disclosing a relationship alone is not a scored issue.
 
 ```text
 base penalty = 60 × (language + steering + importance) / 9
 issue penalty = base penalty × evidence multiplier × repetition multiplier
-
-total penalty = min(15, sum of minor issue penalties)
-                + sum of other issue penalties
-overall bias score = round(max(0, 100 − total penalty))
+total penalty = min(15, sum of importance-1 penalties)
+                + sum of importance-2 and importance-3 penalties
+bias score = max(0, 100 − total penalty), rounded to the nearest integer
 ```
 
-- Evidence multiplier: 1 for supported findings; 0.5 for potential concerns.
-- Repetition multiplier: 1 normally; 1.25 when repetition materially increases prominence. Explain why the increase applies.
-- Minor issues have financial importance 1. Other scored issues have importance 2 or 3.
-- Group duplicates and related manifestations of one underlying problem into one finding, with multiple passage references. Do not apply several full penalties to the same problem.
-- Keep intermediate values unrounded; round only the final score, with halves rounded upward.
-- Potential concerns have no separate combined cap: several may reduce the score to 0. Make their uncertainty visible beside the score.
+- Evidence multiplier: **1** for a supported finding; **0.5** for a potential concern.
+- Repetition multiplier: **1** normally; **1.25** only when repetition makes the problem materially more prominent. Explain the increase; do not charge separate full penalties for the same problem.
+- Keep intermediate values unrounded; round the final score with halves upward.
+- Potential concerns have no separate total cap and can reduce the score to 0. Show their uncertainty beside the score and each finding's contribution.
 
-| Calibration example | Bias score |
-| --- | --- |
-| Complete review with no qualifying findings | 100 |
-| Only minor issues, after their combined cap is reached | 85 |
-| One supported issue rated 3 on all factors | 40 |
-| The same issue with materially prominent repetition | 25 |
-| One potential concern rated 3 on all factors | 70 |
+Examples: no qualifying findings → **100**; only minor issues at their combined cap → **85**; one supported issue rated 3/3/3 → **40**, or **25** with prominent repetition; one potential concern rated 3/3/3 → **70**.
 
-Withhold the bias score for summary-only reviews and incomplete full-document reviews, including missing pages, unreadable scans, or uninterpretable tables. Still summarize available material and flag supported problems and potential concerns within it. State which filings and periods were reviewed and any coverage limits; do not treat missing analysis as evidence of neutrality. A one-filing review may receive a score if that filing is reviewed in full, but label the score as based on that filing alone.
+**Withhold the score** for summary-only or incomplete reviews, including missing pages, unreadable scans, or tables that cannot be interpreted. Still summarize available material and flag issues it supports. Identify filings, periods, and coverage limits; missing analysis is not evidence of neutrality. A complete review of one filing may receive a score labeled as based on that filing alone.
 
-## Financial risk profile
+## Report order
 
-Show company-level financial exposures separately from the bias score. This is not an investor suitability rating or a buy/sell recommendation. Do not combine indicators into a second overall risk score in this version. Where the filing provides enough information, organize indicators under liquidity and obligations, leverage and debt, cash flow, and market exposures such as interest-rate, currency, or other price risk. These categories are consistent with the risk disclosures described in [IFRS 7](https://www.ifrs.org/issued-standards/list-of-standards/ifrs-7-financial-instruments-disclosures/).
+1. **What changed:** Start with the selected filing's picture of the company: business, revenue sources, segments, recent results, financial position, and major disclosed uncertainties. Then compare a prior filing for the same company. Identify both filings and periods. Show meaningful changes in figures, segment results, risks, policies, estimates, and management explanations. Link to evidence in both filings where possible. Separate reported facts, calculated values, and interpretation; preserve qualifications and identify missing information. A change alone does not establish its cause.
+2. **Bias review:** Show findings, source passages, uncertainty, review limits, and one score only when eligible.
+3. **Financial risk profile:** Show separate indicators for ability to meet payments (liquidity and obligations), debt and borrowing (leverage), cash flow, and exposure to interest rates, currencies, or other prices. Each needs a value, unit, period, definition or formula, and source passage/table. Mark missing data as unavailable. Ratios may differ across industries, periods, or accounting rules. Risk alone is not bias; do not combine indicators into another overall score.
 
-For each indicator, show the reported or calculated value, unit, reporting period, definition or formula, and source passage or table. Mark unavailable information as unavailable rather than implying low risk. Explain that ratios may not be comparable across industries, reporting periods, or accounting frameworks. A risk exposure is not itself evidence of biased presentation.
+Keep these sections in one report without requiring tab changes. The report is limited to the reviewed documents and is not investment advice or an investor suitability rating.
 
-## “What changed” across filings
+Preserve source layout, tables, and page references. Connect exact highlighted passages to explanations. Use explicit finding labels, not color alone. Keep original text in its source language; write summaries and explanations in the selected website language. Support English and German documents.
 
-Begin with a concise picture of the company based on the selected filing: what it does, how it generates revenue, its main business segments, recent financial performance and position, and its most significant disclosed uncertainties. Then compare that filing with a prior filing for the same company. Identify both filings and their reporting periods. Highlight meaningful changes in financial figures, segment results, risk disclosures, accounting policies or estimates, and management explanations when supported by the documents. Distinguish company-reported statements from calculated metrics and interpretation. Include key figures with units, period labels, and links to source passages or tables; state what information or periods are missing. Link each comparison to the relevant passage or table in both filings where possible. A change alone does not establish bias, increased risk, or its cause, and it does not alter either the bias score or the separate risk indicators automatically. Do not present this section as a complete account of the company or as an investment recommendation.
+## Future collection
 
-## Reading flow and future collection
+Once retrieval and analysis exist, analyze new material during [hourly feed collection](ARCHITECTURE.md#feed-and-page-behavior) and publish results automatically. Retrieve full linked documents when available; otherwise apply the no-score rule. Hourly processing uses this definition; it does not rewrite the rules or update their research basis.
 
-1. Present **What changed** first. It opens with the company’s current picture from the selected filing, then compares that filing with the prior filing. Preserve qualifications; distinguish reported facts, calculated metrics, and interpretation.
-2. Present **Bias review** and **Financial risk profile** as supporting sections in the same report. Show one bias score only when eligible, with review limits and each finding’s contribution. Keep risk indicators separate, cite the filings used for comparisons, and state the review’s coverage limits. Do not make users navigate tabs to see the main analysis.
-3. Preserve the original document’s layout, tables, and page references. Highlight exact sections and connect them to explanations. Distinguish supported findings from potential concerns using explicit labels, not color alone.
+## Research basis
 
-Keep original text in its source language. Summaries and explanations follow the selected website language. Cover both English and German source documents.
+These sources inform the rules; they are not outside evidence for judging individual filings:
 
-The existing [collector](../src/rss.js) has eight feeds from SEC, BaFin, and ECB and currently stores feed metadata and excerpts. Once retrieval and the model are built, analyze new content on hourly pulls and publish results automatically. Retrieve full linked documents when available; otherwise use available summaries with the no-score rule above. The hourly process applies this definition; it does not automatically rewrite the definition or refresh its research basis. No model, retrieval, scoring, or annotated viewer is implemented by this document.
+- [IFRS Conceptual Framework](https://www.ifrs.org/issued-standards/list-of-standards/conceptual-framework/): neutrality, paragraph 2.15. Full standard access may require a subscription.
+- [CFA: misrepresentation](https://www.cfainstitute.org/standards/professionals/code-ethics-standards/standards-of-practice-i-c) and [conflicts of interest](https://www.cfainstitute.org/standards/professionals/code-ethics-standards/standards-of-practice-vi-a).
+- [SEC: management discussion and analysis](https://www.sec.gov/rules-regulations/2003/12/commission-guidance-regarding-managements-discussion-analysis-financial-condition-results-operations).
+- [CFA: behavioral biases](https://www.cfainstitute.org/insights/professional-learning/refresher-readings/2026/the-behavioral-biases-of-individuals): background only; the app does not diagnose people.
+- [IFRS 7](https://www.ifrs.org/issued-standards/list-of-standards/ifrs-7-financial-instruments-disclosures/): financial risk disclosure categories.
