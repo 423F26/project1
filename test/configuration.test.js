@@ -26,7 +26,7 @@ function request(server, { method = 'GET', url = '/', host = 'plaintext.example.
   return output;
 }
 
-test('only serves the configured HTML root endpoint', () => {
+test('serves the HTML root and feed API with the configured request protections', () => {
   const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
   const server = createServer({ tls: {}, allowedHosts: new Set(['plaintext.example.com']), rateLimit: 10, html });
   const success = request(server);
@@ -38,14 +38,22 @@ test('only serves the configured HTML root endpoint', () => {
   assert.match(success.body, /<script data-cfasync="false">/);
   const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
   assert.equal(success.headers['content-security-policy'].split('; ').find(rule => rule.startsWith('script-src ')), `script-src 'sha256-${scriptHash}'`);
-  for (const rule of ["default-src 'none'", "img-src https:", "connect-src 'none'", "frame-src 'none'", "form-action 'none'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(success.headers['content-security-policy'].includes(rule));
+  for (const rule of ["default-src 'none'", "img-src https:", "connect-src 'self'", "frame-src 'none'", "form-action 'none'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(success.headers['content-security-policy'].includes(rule));
   assert.equal(success.headers['referrer-policy'], 'no-referrer');
-  for (const value of ['Financial review', 'Find company filings', 'Latest updates']) assert.match(success.body, new RegExp(value));
+  for (const value of ['Financial review', 'Find company filings', 'Recent Filings']) assert.match(success.body, new RegExp(value));
   for (const value of ['RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Directional bias']) assert.doesNotMatch(success.body, new RegExp(value));
-  assert.equal((success.body.match(/type="button"/g) ?? []).length, 2);
+  assert.match(success.body, /<button id="language-toggle" type="button"/);
+  assert.match(success.body, /<button type="button"><span data-de="Berichte suchen">Find filings<\/span><\/button>/);
   assert.equal((success.body.match(/<input[^>]*type="url"/g) ?? []).length, 0);
   assert.equal((success.body.match(/<article/g) ?? []).length, 0);
-  assert.doesNotMatch(success.body, /<form/i);
+  assert.equal((success.body.match(/<form\b/g) ?? []).length, 1);
+  assert.match(success.body, /<form class="filter-controls">/);
+  assert.match(success.body, /<nav class="feed-pagination"[^>]* hidden>/);
+  const feed = request(server, { url: '/api/filings' });
+  assert.equal(feed.status, 200);
+  assert.equal(feed.headers['content-type'], 'application/json; charset=utf-8');
+  assert.deepEqual(JSON.parse(feed.body).items, []);
+  assert.equal(request(server, { url: '/api/filings?source=unknown' }).status, 400);
   const notFound = request(server, { url: '/anything' });
   const methodNotAllowed = request(server, { method: 'HEAD' });
   const post = request(server, { method: 'POST' });
@@ -61,12 +69,32 @@ test('only serves the configured HTML root endpoint', () => {
 
 test('serves saved feed entries without publisher requests', () => {
   const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
+  const queries = [];
   const server = createServer({ tls: {}, allowedHosts: new Set(['plaintext.example.com']), rateLimit: 10, html, store: {
-    recent: () => [{ publisher: 'ECB', title: 'New & important $&', link: 'https://www.ecb.europa.eu/news', published_at: '2026-09-30T12:00:00.000Z', excerpt: 'Policy update' }]
+    page: options => {
+      queries.push(options);
+      return {
+        items: [{ publisher: 'ECB', title: 'New & important $&', link: 'https://www.ecb.europa.eu/news', published_at: '2026-09-30T12:00:00.000Z', excerpt: 'Policy update' }],
+        nextCursor: { secOffset: 0, otherOffset: 1 }, hasMore: false,
+        totalPages: 1, totalCounts: { sec: 0, other: 1 }
+      };
+    }
   } });
   const response = request(server);
   assert.equal(response.status, 200);
   assert.match(response.body, /New &amp; important \$&/);
-  assert.match(response.body, /Policy update/);
+  assert.match(response.body, /href="https:\/\/www\.ecb\.europa\.eu\/news" target="_blank" rel="noopener noreferrer"/);
+  assert.match(response.body, /<span class="publisher">ECB<\/span>/);
+  assert.match(response.body, /<time datetime="2026-09-30T12:00:00.000Z">2026-09-30<\/time>/);
+  assert.doesNotMatch(response.body, /Policy update/);
   assert.doesNotMatch(response.body, /FEED_ITEMS|RSS source manager|Directional bias/);
+  const feed = request(server, { url: '/api/filings?source=ECB&from=2026-09-01&to=2026-09-30' });
+  assert.equal(feed.status, 200);
+  const page = JSON.parse(feed.body);
+  assert.match(page.html, /New &amp; important \$&/);
+  assert.doesNotMatch(page.html, /Policy update/);
+  assert.deepEqual(queries, [
+    { limit: 20, secOffset: 0, otherOffset: 0 },
+    { limit: 20, secOffset: 0, otherOffset: 0, source: 'ECB', from: '2026-09-01', to: '2026-09-30' }
+  ]);
 });
