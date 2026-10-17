@@ -6,7 +6,7 @@
   <meta name="description" content="{{ site.description | escape }}">
   {% assign filename = page.path | split: '/' | last | remove: '.md' %}
   <title>{{ filename | escape }} · {{ site.title | escape }}</title>
-  <link rel="stylesheet" href="{{ '/assets/docs.css' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/docs.css' | relative_url }}?v={{ site.github.build_revision }}">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
