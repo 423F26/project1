@@ -5,6 +5,8 @@ Browse saved SEC filings and BaFin/ECB updates in English or German. Company sea
 
 [Web app](https://esof423.csit.help)
 
+[Documentation website](https://423f26.github.io/project1/)
+
 ## Project Authors
 
 - Owen Sanford ([oogwaysprophecy732](https://github.com/oogwaysprophecy732))
@@ -12,13 +14,13 @@ Browse saved SEC filings and BaFin/ECB updates in English or German. Company sea
 
 ## Navigation
 
-[Agile Documentation](docs/agile/README.md)
+[Agile Documentation](https://github.com/423F26/project1/tree/main/docs/agile)
 
 [Operations](docs/OPERATIONS.md)
 
 [Architecture](docs/ARCHITECTURE.md)
 
-[Agents](docs/agents/AGENTS.md)
+[Agents](AGENTS.md)
 
 [Design language](docs/agents/DESIGN.md)
 

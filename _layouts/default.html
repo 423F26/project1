@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ site.description | escape }}">
+  <title>{{ page.title | default: site.title | escape }} · Documentation</title>
+  <link rel="stylesheet" href="{{ '/assets/docs.css' | relative_url }}">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="shell">
+    <a class="site-title" href="{{ '/' | relative_url }}">Financial review <span>Documentation</span></a>
+    <a href="https://github.com/{{ site.repository }}">GitHub repository</a>
+  </header>
+  <div class="shell reading-layout">
+    <nav aria-label="Documentation">
+      <p class="nav-label">Project guides</p>
+      {% assign documents = site.pages | sort: 'path' %}
+      {% for document in documents %}
+        {% if document.layout == 'default' %}
+          <a href="{{ document.url | relative_url }}"{% if document.url == page.url %} aria-current="page"{% endif %}>{{ document.title | default: document.name | escape }}</a>
+        {% endif %}
+      {% endfor %}
+      <a href="https://github.com/{{ site.repository }}/tree/main/docs/agile">Agile records on GitHub</a>
+    </nav>
+    <main id="main" tabindex="-1">
+      <article>{{ content }}</article>
+      <footer><a href="https://github.com/{{ site.repository }}/blob/main/{{ page.path | uri_escape }}">View Markdown on GitHub</a></footer>
+    </main>
+  </div>
+</body>
+</html>

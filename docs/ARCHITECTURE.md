@@ -6,13 +6,14 @@ The app serves a filing-search prototype and a working feed of saved financial u
 
 | File | Role |
 | --- | --- |
-| [src/server.js](../src/server.js) | HTTPS requests, security checks, feed rendering, and JSON responses |
-| [src/rss.js](../src/rss.js) | Eight fixed feeds, hourly collection, XML parsing, and SQLite storage |
-| [public/index.html](../public/index.html) | Layout, styles, language toggle, feed filters, and pagination |
-| [src/dev.js](../src/dev.js) | Local server and development certificates |
-| [compose.yaml](../compose.yaml) / [Dockerfile](../Dockerfile) | Deployment, storage ownership, and container limits |
-| [package.json](../package.json) / [package-lock.json](../package-lock.json) | Commands, project version, and locked dependencies |
-| [test/](../test/) | Server, feed, and language checks |
+| [src/server.js](https://github.com/423F26/project1/blob/main/src/server.js) | HTTPS requests, security checks, feed rendering, and JSON responses |
+| [src/rss.js](https://github.com/423F26/project1/blob/main/src/rss.js) | Eight fixed feeds, hourly collection, XML parsing, and SQLite storage |
+| [public/index.html](https://github.com/423F26/project1/blob/main/public/index.html) | Layout, styles, language toggle, feed filters, and pagination |
+| [src/dev.js](https://github.com/423F26/project1/blob/main/src/dev.js) | Local server and development certificates |
+| [compose.yaml](https://github.com/423F26/project1/blob/main/compose.yaml) / [Dockerfile](https://github.com/423F26/project1/blob/main/Dockerfile) | Deployment, storage ownership, and container limits |
+| [package.json](https://github.com/423F26/project1/blob/main/package.json) / [package-lock.json](https://github.com/423F26/project1/blob/main/package-lock.json) | Commands, project version, and locked dependencies |
+| [test/](https://github.com/423F26/project1/tree/main/test) | Server, feed, and language checks |
+| [_config.yml](https://github.com/423F26/project1/blob/main/_config.yml), [_layouts/default.html](https://github.com/423F26/project1/blob/main/_layouts/default.html), [assets/docs.css](https://github.com/423F26/project1/blob/main/assets/docs.css) | GitHub Pages documentation publishing, layout, and styles |
 
 ## Request flow
 
@@ -39,6 +40,10 @@ Each page has up to 20 display entries, including at most eight SEC company grou
 
 One inline script controls English/German labels and feed requests. It preserves entered values and selections, saves `pageLanguage` when browser storage permits, and leaves publisher text in its source language. Some generated labels remain English; see [Operations](OPERATIONS.md#using-the-page).
 
+## Documentation website
+
+GitHub Pages builds the existing Markdown files with Jekyll after pushes to `main`. One shared layout and stylesheet match the webapp's colors and typography. Navigation is generated from the rendered pages; internal Markdown links become website links. Agile records and app/runtime files are excluded and linked on GitHub. See [publishing details](OPERATIONS.md#documentation-website).
+
 ## Security boundary
 
 - TLS 1.2+, certificate/key paths, and an exact hostname allowlist are required. Rate limits use the direct socket address and ignore forwarded IP headers; tunnel users may share one limit.
@@ -47,4 +52,4 @@ One inline script controls English/German labels and feed requests. It preserves
 - HTML uses a restrictive Content Security Policy (CSP): the single inline script is allowed by its SHA-256 hash, feed requests stay on the same origin, and forms/frames are blocked. HSTS requires future HTTPS visits; referrer headers are disabled.
 - The app container runs as `node`, with all Linux capabilities dropped and a read-only filesystem except its RSS volume and temporary storage. A separate root initialization service sets volume ownership.
 
-Follow the [Repository guide](agents/AGENTS.md) when changing these boundaries.
+Follow the [Repository guide](../AGENTS.md) when changing these boundaries.

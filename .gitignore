@@ -10,3 +10,7 @@ data/
 Thumbs.db
 Desktop.ini
 .Rhistory
+_site/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/

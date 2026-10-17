@@ -41,6 +41,14 @@ The one-time `rss-data-init` service runs as root to give `node` ownership of th
 
 Outbound HTTPS to the fixed feeds is required. SEC requests include `charles.smith26@student.montana.edu` in the User-Agent. Feed history stays in `rss_data` across rebuilds and `docker compose down`; `docker compose down -v` erases it. There is no automatic pruning.
 
+## Documentation website
+
+[Read the documentation](https://423f26.github.io/project1/) on GitHub Pages. GitHub builds it from `main` and the repository root using Jekyll. Every push to `main` triggers publishing; changes appear after the build and deployment finish, usually within a few minutes, rather than instantly. Uncommitted changes and other branches do not update the site.
+
+Edit the existing Markdown files; do not maintain separate website copies. Markdown pages are rendered automatically and added to navigation. Agile records remain on GitHub. Source-code links also open GitHub because application files are excluded from the site.
+
+The layout lives in `_layouts/default.html`, styles in `assets/docs.css`, and publishing configuration in `_config.yml`. In repository **Settings → Pages**, keep **Deploy from a branch**, **main**, and **/(root)** selected, with no custom domain. Check the **pages build and deployment** run in **Actions** if an update fails. The documentation site is English; the webapp's language toggle is separate.
+
 ## Configuration
 
 `.env` supplies Compose substitutions; the app does not load it directly. Compose currently forwards only `ALLOWED_HOSTS` and the two TLS paths.
@@ -53,7 +61,7 @@ Outbound HTTPS to the fixed feeds is required. SEC requests include `charles.smi
 | `RATE_LIMIT` | Default 10 requests/minute per socket source address | Fixed at 10 |
 | `RSS_DB_PATH` | Default `/data/rss.sqlite`; parent directory must exist | Fixed at `data/rss.sqlite` |
 
-For Docker overrides, edit the service's `environment` in [compose.yaml](../compose.yaml); a port change must also update both sides of its port mapping. The direct server binds to `0.0.0.0`; development binds to loopback. Forwarded IP headers are ignored, so tunnel users may share a rate limit. See [Architecture](ARCHITECTURE.md) for request checks.
+For Docker overrides, edit the service's `environment` in [compose.yaml](https://github.com/423F26/project1/blob/main/compose.yaml); a port change must also update both sides of its port mapping. The direct server binds to `0.0.0.0`; development binds to loopback. Forwarded IP headers are ignored, so tunnel users may share a rate limit. See [Architecture](ARCHITECTURE.md) for request checks.
 
 Never commit `.env`, certificates, private keys, or runtime data.
 
@@ -61,4 +69,4 @@ Never commit `.env`, certificates, private keys, or runtime data.
 
 Run `npm test` and `git diff --check`. Run `docker compose config` after Compose changes. For UI changes, check both languages, retained inputs, keyboard focus, small screens, and populated/empty feeds.
 
-The project version is **0.2.0**. Keep [package.json](../package.json), both project-version fields in [package-lock.json](../package-lock.json), and the collector User-Agent in sync. Patch releases fix or document existing behavior; minor releases add behavior and cover incompatible changes before 1.0.0; 1.0.0 marks the first stable contract. Human maintainers own the [Agile records](agile/README.md); agents leave them untouched.
+The project version is **0.2.0**. Keep [package.json](https://github.com/423F26/project1/blob/main/package.json), both project-version fields in [package-lock.json](https://github.com/423F26/project1/blob/main/package-lock.json), and the collector User-Agent in sync. Patch releases fix or document existing behavior; minor releases add behavior and cover incompatible changes before 1.0.0; 1.0.0 marks the first stable contract. Human maintainers own the [Agile records](https://github.com/423F26/project1/tree/main/docs/agile); agents leave them untouched.
