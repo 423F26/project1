@@ -4,31 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="{{ site.description | escape }}">
-  <title>{{ page.title | default: site.title | escape }} · Documentation</title>
+  {% assign filename = page.path | split: '/' | last | remove: '.md' %}
+  <title>{{ filename | escape }} · {{ site.title | escape }}</title>
   <link rel="stylesheet" href="{{ '/assets/docs.css' | relative_url }}">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="shell">
-    <a class="site-title" href="{{ '/' | relative_url }}">Financial review <span>Documentation</span></a>
-    <a href="https://github.com/{{ site.repository }}">GitHub repository</a>
+    <a class="site-title" href="{{ '/' | relative_url }}">Project #1 Documentation</a>
   </header>
   <div class="shell reading-layout">
-    <nav aria-label="Documentation">
-      <p class="nav-label">Project guides</p>
+    <aside class="sidebar" data-open="false">
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="documentation-nav">Menu</button>
+      <nav id="documentation-nav" aria-label="Documentation">
       {% assign documents = site.pages | sort: 'path' %}
       {% for document in documents %}
-        {% assign extension = document.path | split: '.' | last %}
-        {% if extension == 'md' %}
-          <a href="{{ document.url | relative_url }}"{% if document.url == page.url %} aria-current="page"{% endif %}>{{ document.title | default: document.name | escape }}</a>
+        {% if document.path == 'README.md' %}
+          <a href="{{ document.url | relative_url }}"{% if document.url == page.url %} aria-current="page"{% endif %}>README</a>
         {% endif %}
       {% endfor %}
-      <a href="https://github.com/{{ site.repository }}/tree/main/docs/agile">Agile records on GitHub</a>
-    </nav>
+      {% include docs-tree.html prefix='' %}
+      </nav>
+    </aside>
     <main id="main" tabindex="-1">
       <article>{{ content }}</article>
-      <footer><a href="https://github.com/{{ site.repository }}/blob/main/{{ page.path | uri_escape }}">View Markdown on GitHub</a></footer>
     </main>
   </div>
+  <footer class="shell site-footer"><a href="https://github.com/{{ site.repository }}">GitHub repository</a></footer>
+  <noscript><style>.sidebar nav { display: block; } .menu-toggle { display: none; }</style></noscript>
+  <script>
+    const sidebar = document.querySelector('.sidebar');
+    const menu = sidebar.querySelector('.menu-toggle');
+    function closeMenu() {
+      sidebar.dataset.open = 'false';
+      menu.setAttribute('aria-expanded', 'false');
+    }
+    menu.addEventListener('click', () => {
+      const open = menu.getAttribute('aria-expanded') !== 'true';
+      sidebar.dataset.open = String(open);
+      menu.setAttribute('aria-expanded', String(open));
+    });
+    sidebar.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && menu.getAttribute('aria-expanded') === 'true') {
+        closeMenu();
+        menu.focus();
+      }
+    });
+  </script>
 </body>
 </html>

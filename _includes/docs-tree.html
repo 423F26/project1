@@ -1,0 +1,29 @@
+<ul class="doc-tree">
+  {% assign folder_names = '' %}
+  {% for document in documents %}
+    {% assign extension = document.path | split: '.' | last %}
+    {% assign prefix = document.path | slice: 0, include.prefix.size %}
+    {% if extension == 'md' and prefix == include.prefix and document.path != 'README.md' %}
+      {% assign relative_path = document.path | remove_first: include.prefix %}
+      {% assign segments = relative_path | split: '/' %}
+      {% if segments.size == 1 %}
+        <li><a href="{{ document.url | relative_url }}"{% if document.url == page.url %} aria-current="page"{% endif %}>{{ segments.first | remove: '.md' | escape }}</a></li>
+      {% else %}
+        {% assign folder_names = folder_names | append: segments.first | append: '|' %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  {% assign folders = folder_names | split: '|' | uniq | sort %}
+  {% for folder in folders %}
+    {% if folder != '' %}
+      {% assign child_prefix = include.prefix | append: folder | append: '/' %}
+      <li class="doc-folder">
+        <span class="folder-name">{{ folder | escape }}/</span>
+        {% include docs-tree.html prefix=child_prefix %}
+      </li>
+    {% endif %}
+  {% endfor %}
+  {% if include.prefix == 'docs/' %}
+    <li class="doc-folder"><a href="https://github.com/{{ site.repository }}/tree/main/docs/agile">agile/ (GitHub)</a></li>
+  {% endif %}
+</ul>

@@ -45,9 +45,9 @@ Outbound HTTPS to the fixed feeds is required. SEC requests include `charles.smi
 
 [Read the documentation](https://423f26.github.io/project1/) on GitHub Pages. GitHub builds it from `main` and the repository root using Jekyll. Every push to `main` triggers publishing; changes appear after the build and deployment finish, usually within a few minutes, rather than instantly. Uncommitted changes and other branches do not update the site.
 
-Edit the existing Markdown files; do not maintain separate website copies. Markdown pages are rendered automatically and added to navigation. Agile records remain on GitHub. Source-code links also open GitHub because application files are excluded from the site.
+Edit the existing Markdown files; do not maintain separate website copies. README is the landing page and first navigation link. Sidebar labels and browser titles use filenames without extensions; document headings stay unchanged. Files are grouped by repository folder, with all folders expanded. The desktop sidebar stays visible while scrolling; on narrow screens, a sticky Menu button opens it. Agile records remain on GitHub. Source-code links also open GitHub because application files are excluded from the site.
 
-The layout lives in `_layouts/default.html`, styles in `assets/docs.css`, and publishing configuration in `_config.yml`. In repository **Settings → Pages**, keep **Deploy from a branch**, **main**, and **/(root)** selected, with no custom domain. Check the **pages build and deployment** run in **Actions** if an update fails. The documentation site is English; the webapp's language toggle is separate.
+The layout lives in `_layouts/default.html`, folder navigation in `_includes/docs-tree.html`, styles in `assets/docs.css`, and publishing configuration in `_config.yml`. The header reads “Project #1 Documentation”; the repository link is in the bottom-right footer. In repository **Settings → Pages**, keep **Deploy from a branch**, **main**, and **/(root)** selected, with no custom domain. Check the **pages build and deployment** run in **Actions** if an update fails. The documentation site is English; the webapp's language toggle is separate.
 
 ## Configuration
 
