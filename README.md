@@ -1,10 +1,9 @@
-# Financial review
-
-Version **0.2.0**. Browse saved SEC filings and BaFin/ECB updates, with source/date filters and numbered pages. English/German page labels are available; some generated feed labels remain English. Company search and bias analysis are planned.
-
+# Untitled (Zwicky)
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
-[Web app (Cloudflare Access sign-in)](https://esof423.csit.help)
+Browse saved SEC filings and BaFin/ECB updates in English or German. Company search and bias analysis are planned.
+
+[Web app](https://esof423.csit.help)
 
 ## Project Authors
 
@@ -17,9 +16,13 @@ Version **0.2.0**. Browse saved SEC filings and BaFin/ECB updates, with source/d
 
 [Operations](docs/OPERATIONS.md)
 
-[Architecture](docs/ARCHITECTURE.md) · [Planned bias analysis](docs/BIAS.md)
+[Architecture](docs/ARCHITECTURE.md)
 
-[Agents](docs/agents/AGENTS.md) · [Design language](docs/agents/DESIGN.md)
+[Agents](docs/agents/AGENTS.md)
+
+[Design language](docs/agents/DESIGN.md)
+
+[Planned bias analysis](docs/BIAS.md)
 
 ## Local Deployment & Security
 
