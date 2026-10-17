@@ -18,7 +18,8 @@
       <p class="nav-label">Project guides</p>
       {% assign documents = site.pages | sort: 'path' %}
       {% for document in documents %}
-        {% if document.layout == 'default' %}
+        {% assign extension = document.path | split: '.' | last %}
+        {% if extension == 'md' %}
           <a href="{{ document.url | relative_url }}"{% if document.url == page.url %} aria-current="page"{% endif %}>{{ document.title | default: document.name | escape }}</a>
         {% endif %}
       {% endfor %}
