@@ -1,7 +1,7 @@
 # Untitled (Zwicky)
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
-Browse saved SEC filings and BaFin/ECB updates in English or German. Company search and bias analysis are planned.
+Search recent U.S. company filings from the SEC or German publications from the official Unternehmensregister, with results displayed in the app. Both market modes share company, type, year, and topic controls; type options reflect each market's source. Topic matches currently use titles and source descriptions rather than full filing text. Browse saved SEC, BaFin, and ECB updates in English or German. Cross-market document analysis and bias analysis are planned.
 
 [Web app](https://esof423.csit.help)
 

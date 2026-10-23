@@ -4,6 +4,7 @@ const { readFileSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const https = require('node:https');
 const { openStore, startCollector } = require('./rss');
+const { SearchError, searchUs, searchGermany, validateSearch } = require('./company-search');
 
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -63,7 +64,7 @@ function createServer(options) {
   if (scripts.length !== 1) throw new Error('HTML must contain exactly one inline script');
   const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
   const attempts = new Map();
-  const server = https.createServer({ ...options.tls, maxHeaderSize: 8 * 1024, insecureHTTPParser: false }, (request, response) => {
+  const server = https.createServer({ ...options.tls, maxHeaderSize: 8 * 1024, insecureHTTPParser: false }, async (request, response) => {
     const now = Date.now();
     const client = request.socket.remoteAddress ?? 'unknown';
     const state = attempts.get(client);
@@ -92,6 +93,27 @@ function createServer(options) {
       const page = options.store?.page?.({ limit: 20, secOffset, otherOffset, source, from, to }) ?? { items: [], nextCursor: { secOffset, otherOffset }, hasMore: false };
       const body = JSON.stringify({ html: renderFeed(page.items), ...page });
       return reply(response, 200, body, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+    }
+    if (url.pathname === '/api/company-filings') {
+      if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
+      const market = url.searchParams.get('market') ?? '';
+      const company = url.searchParams.get('company') ?? '';
+      const formType = url.searchParams.get('formType') ?? 'any';
+      const year = url.searchParams.get('year') ?? '';
+      const topic = url.searchParams.get('topic') ?? '';
+      if (!['US', 'DE'].includes(market)) return reply(response, 400, 'Choose a supported filing market.\n');
+      try {
+        validateSearch(company, formType, year, topic, market);
+        const fetcher = options.fetcher ?? fetch;
+        const result = market === 'US'
+          ? { market, companies: await searchUs({ company: company.trim(), formType, year, topic, fetcher }) }
+          : { market, filings: await searchGermany(company.trim(), { formType, year, topic, fetcher }) };
+        return reply(response, 200, JSON.stringify(result), { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      } catch (error) {
+        const status = error instanceof SearchError ? error.status : 502;
+        const message = error instanceof SearchError ? error.message : 'The filing source could not be searched. Please try again.';
+        return reply(response, status, JSON.stringify({ error: message }), { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      }
     }
     if (url.pathname !== '/' || url.search) return reply(response, 404, 'Not found.\n');
     if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) {

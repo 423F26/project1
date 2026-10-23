@@ -15,11 +15,11 @@ Development needs no `.env`. It creates a one-year certificate in ignored `certs
 
 ## Using the page
 
-- **Find company filings** is a prototype: its search button does nothing. United States is selected; Germany is unavailable.
+- **Find company filings** uses the same control layout in both markets. United States searches the SEC by company name, ticker, or CIK; Germany searches by company name or EUID. Filing type choices change to match each market, while year and topic controls stay in the same position. The U.S. year filter uses the report period when available; the German year filter uses publication date. German search filters up to 30 entries from the first page of official Unternehmensregister results, so older matching items may not appear if they are on later pages. Topic filters match filing titles and source descriptions only; they do not inspect the full statements. German result titles open original registry pages in a new tab; some deposited financial statements require registration. Expand a company group to select individual filings or **Select all** for that company. Expanding a company enables **Analyze selected** beneath its filings; collapsing it clears that company's selections. The analysis action is a placeholder until the AI analyzer is implemented. The Recent Filings feed remains visible until a company search is submitted; use its button to return to the feed.
 - **Recent Filings** works. Expand the source/date filters, apply or clear them, and use numbered pages or previous/next controls. Dates include both endpoints and use the publication date, falling back to the collection date. Pages contain up to 20 entries, including at most eight SEC company groups; expand a group to see its other matching filings. Links open the original sources in new tabs.
 - **Deutsch / English** changes marked page labels and preserves inputs. English is the default; `pageLanguage=de` in browser storage restores German. If storage is blocked, the choice lasts for that visit. Publisher text stays in its source language. Generated SEC form labels, expansion text, new-tab descriptions, and some pagination labels remain English. Empty messages loaded after filtering/paging are not reapplied to the selected language.
 
-The backend collects eight feeds at startup and hourly, independently of visits. Failed sources keep saved entries. An empty database or unmatched filter shows an empty message. Hourly polling can miss entries removed by publishers between checks. Full-document retrieval and [bias analysis](BIAS.md) are planned.
+The backend collects eight feeds at startup and hourly, independently of visits. Failed sources keep saved entries. An empty database or unmatched filter shows an empty message. Hourly polling can miss entries removed by publishers between checks. U.S. search uses SEC's public company directory and submissions API. German search parses listing metadata from the official register but does not retrieve the linked documents. Full-document retrieval across markets and [bias analysis](BIAS.md) are planned.
 
 ## Deploy with Docker Compose
 
@@ -39,7 +39,7 @@ Compose publishes only `127.0.0.1:19283`. Keep the origin private; Cloudflare Ac
 
 The one-time `rss-data-init` service runs as root to give `node` ownership of the `rss_data` volume, then exits. The app runs unprivileged with all capabilities dropped. Limits: 0.25 CPU, 128 MiB RAM, 32 processes, read-only root filesystem, writable `/data`, and an 8 MiB restricted `/tmp`. Restart policy: `unless-stopped`.
 
-Outbound HTTPS to the fixed feeds is required. SEC requests include `charles.smith26@student.montana.edu` in the User-Agent. Feed history stays in `rss_data` across rebuilds and `docker compose down`; `docker compose down -v` erases it. There is no automatic pruning.
+Outbound HTTPS to the fixed feeds, SEC data endpoints, and Unternehmensregister is required. SEC requests include `charles.smith26@student.montana.edu` in the User-Agent. Feed history stays in `rss_data` across rebuilds and `docker compose down`; `docker compose down -v` erases it. There is no automatic pruning.
 
 ## Documentation website
 

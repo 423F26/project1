@@ -26,8 +26,11 @@
     .search-heading { flex: 1; margin: 0; font-size: 20px; line-height: 1.35; font-weight: 500; }
     .market { display: flex; flex-wrap: wrap; gap: 6px 16px; max-width: 330px; min-width: 0; margin: 0; padding: 0; border: 0; font-size: 14px; }
     .market legend { margin-bottom: 4px; color: var(--muted); }
-    .market-option { display: inline-flex; align-items: baseline; gap: 7px; }
-    .market .coming-soon { color: var(--muted); }
+    .market-option { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 4px 10px; border: 1px solid var(--control); border-radius: 18px; cursor: pointer; }
+    .market-option:has(input:checked) { border-color: var(--accent); color: var(--accent); }
+    .market-option input { margin: 0; accent-color: var(--accent); }
+    .market-note { margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .topic-note { grid-column: 1 / -1; margin-top: -14px; color: var(--muted); font-size: 13px; }
     .search-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .8fr) minmax(0, 1.7fr); gap: 20px 16px; align-items: end; }
     .search-field { min-width: 0; }
     .company-field { grid-column: 1 / -1; }
@@ -73,6 +76,41 @@
     .feed-pagination .page-number[aria-current="page"] { color: var(--text); cursor: default; }
     .page-ellipsis { color: var(--muted); }
     .feed-empty { padding: 32px 0; border-bottom: 1px solid var(--separator); }
+    .company-results { padding-top: 32px; }
+    .results-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .results-header h2 { margin: 0; font: 400 28px/1.25 Georgia, 'Times New Roman', serif; }
+    .results-header button { min-height: 40px; border-radius: 8px; }
+    .search-status { min-height: 1.6em; margin-bottom: 8px; color: var(--muted); }
+    .search-result-company { padding: 0; border-bottom: 1px solid var(--separator); }
+    .company-result-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+    .company-result-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 16px; }
+    .company-result-heading { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+    .company-name { font: 400 22px/1.35 Georgia, 'Times New Roman', serif; overflow-wrap: anywhere; }
+    .company-count { color: var(--muted); font-size: 14px; }
+    .company-toggle { flex: 0 0 auto; min-height: 0; padding: 4px 0 4px 12px; border: 0; border-radius: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; white-space: nowrap; }
+    .company-toggle:hover { background: transparent; color: #fff; }
+    .company-select-all { min-height: 0; padding: 4px 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; white-space: nowrap; }
+    .company-select-all:hover { background: transparent; color: #fff; }
+    .company-select-all[aria-pressed="true"] { color: var(--accent); }
+    .company-selection-actions { display: flex; justify-content: flex-end; padding-top: 4px; }
+    .company-details { padding: 0 0 20px; }
+    .result-company-meta, .result-filing-meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .result-filings { margin: 10px 0 0; padding-left: 20px; }
+    .result-filings li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 8px 0; }
+    .result-filings a { color: var(--text); text-decoration: underline; text-decoration-color: #939da5; text-underline-offset: 4px; }
+    .result-filings a:hover { color: var(--accent); }
+    .filing-selection-button { flex: 0 0 auto; min-height: 32px; margin-left: auto; padding: 3px 10px; border-radius: 6px; font-size: 13px; }
+    .filing-selection-button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+    .selection-toolbar, .analysis-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .selection-toolbar { padding: 18px 0 6px; }
+    .selection-toolbar[hidden], .analysis-footer[hidden] { display: none; }
+    .selection-title { font-weight: 500; }
+    .selection-count { color: var(--muted); font-size: 13px; }
+      .analysis-footer { margin-top: 12px; padding: 16px 0 24px; border-top: 1px solid var(--separator); }
+    .analysis-status { margin-right: auto; color: var(--muted); font-size: 13px; }
+    .company-analyze-button { border-color: var(--accent); background: var(--accent); color: #000; font-weight: 500; }
+    .company-analyze-button:hover:not(:disabled) { background: #c6e0fa; }
+    .company-analyze-button:disabled { opacity: .55; cursor: default; }
     @media (max-width: 760px) {
       body { padding: 24px; }
       h1 { font-size: 34px; }
@@ -91,6 +129,11 @@
       .company-field, .topic-field { grid-column: auto; }
       .search-field input { font-size: 16px; }
       .search-actions button { width: 100%; }
+      .selection-toolbar, .analysis-footer { align-items: flex-start; flex-wrap: wrap; }
+      .company-result-header { align-items: flex-start; }
+      .company-result-actions { justify-content: flex-end; flex-wrap: wrap; gap: 8px 12px; }
+      .analysis-status { flex-basis: 100%; }
+      .company-analyze-button { width: 100%; }
       article { display: block; }
       .meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 10px; }
       .publisher { margin: 0; }
@@ -102,31 +145,55 @@
   <a class="skip-link" href="#main" data-de="Zum Hauptinhalt">Skip to main content</a>
   <header class="shell"><div><h1 data-de="Finanzberichte prüfen">Financial review</h1><p class="subtitle" data-de="Unternehmensberichte und aktuelle Meldungen">Company filings and source updates</p></div><button id="language-toggle" type="button" aria-label="Switch page to German" data-de-aria-label="Seite auf Englisch anzeigen"><span id="language-flag" aria-hidden="true">🇩🇪</span><span id="language-name">Deutsch</span></button></header>
   <main id="main" class="shell" tabindex="-1">
-  <section class="search-area" aria-label="Search controls" data-de-aria-label="Suchsteuerung"><div class="search-card">
+  <section class="search-area" aria-label="Search controls" data-de-aria-label="Suchsteuerung"><form id="company-search-form" class="search-card">
     <div class="search-header"><h2 class="search-heading" data-de="Unternehmensberichte finden">Find company filings</h2>
     <fieldset class="market" aria-label="Filing market" data-de-aria-label="Markt für Berichte">
       <legend data-de="Markt für Berichte">Filing market</legend>
-      <span class="market-option selected" aria-current="true"><span aria-hidden="true">🇺🇸</span> <span data-de="Vereinigte Staaten · Ausgewählt">United States · Selected</span></span>
-      <span class="market-option coming-soon" aria-disabled="true"><span aria-hidden="true">🇩🇪</span> <span data-de="Deutschland · Noch nicht verfügbar">Germany · Not available yet</span></span>
+      <label class="market-option selected" aria-current="true"><input type="radio" name="market" value="US" checked><span aria-hidden="true">🇺🇸</span> <span data-de="Vereinigte Staaten">United States</span></label>
+      <label class="market-option"><input type="radio" name="market" value="DE"><span aria-hidden="true">🇩🇪</span> <span data-de="Deutschland">Germany</span></label>
     </fieldset>
     </div>
     <div class="search-grid">
-      <div class="search-field company-field"><label for="us-company" data-de="Unternehmen, Börsenkürzel oder Link zu einem SEC-Bericht">Company, ticker, or SEC filing link</label><input id="us-company" type="search" placeholder="e.g., PepsiCo or PEP" data-de-placeholder="z. B. PepsiCo oder PEP"></div>
-      <div class="search-field"><label for="us-type" data-de="Berichtsart">Filing type</label><select id="us-type"><option data-de="Jahresbericht (10-K)">Annual report (10-K)</option><option data-de="Quartalsbericht (10-Q)">Quarterly report (10-Q)</option><option data-de="Alle Berichte">Any filing</option></select></div>
-      <div class="search-field"><label for="us-period" data-de="Zeitraum">Period</label><select id="us-period"><option data-de="Alle Jahre">Any year</option><option>2025</option><option>2024</option><option>2023</option></select></div>
-      <div class="search-field topic-field"><label for="us-topic" data-de="Thema eingrenzen (optional)">Focus on a topic (optional)</label><select id="us-topic"><option data-de="Alle Themen">All topics</option><option data-de="Umsatzrealisierung">Revenue recognition</option><option data-de="Rückstellungen und Schätzungen">Reserves and estimates</option><option data-de="Abschreibungen und Nutzungsdauern">Depreciation and useful lives</option><option data-de="Nicht-GAAP-Kennzahlen">Non-GAAP measures</option></select></div>
+      <div class="search-field company-field"><label id="company-label" for="us-company" data-de="Unternehmen, Börsenkürzel oder CIK">Company name, ticker, or CIK</label><input id="us-company" name="company" type="search" required minlength="2" maxlength="100" autocomplete="organization" placeholder="e.g., PepsiCo or PEP" data-de-placeholder="z. B. PepsiCo oder PEP"></div>
+      <div class="search-field"><label for="filing-type" data-de="Berichtsart">Filing type</label><select id="filing-type" name="formType">
+        <option value="any" data-de="Alle Berichte">Any filing or publication</option>
+        <option value="annual" data-market="US" data-de="Jahresberichte (10-K / 20-F)">Annual reports (10-K / 20-F)</option>
+        <option value="quarterly" data-market="US" data-de="Quartalsberichte (10-Q)">Quarterly reports (10-Q)</option>
+        <option value="annual" data-market="DE" data-de="Jahresabschlüsse und Geschäftsberichte">Annual financial statements and reports</option>
+        <option value="interim" data-market="DE" data-de="Zwischen- und Halbjahresberichte">Interim and half-year reports</option>
+        <option value="other" data-market="DE" data-de="Sonstige Veröffentlichungen">Other publications</option>
+      </select></div>
+      <div class="search-field"><label id="year-label" for="reporting-year" data-de="Berichtsjahr">Reporting year</label><select id="reporting-year" name="year"><option value="" data-de="Alle Jahre">Any year</option></select></div>
+      <div class="search-field topic-field"><label for="filing-topic" data-de="Thema eingrenzen (optional)">Focus on a topic (optional)</label><select id="filing-topic" name="topic"><option value="" data-de="Alle Themen">All topics</option><option value="revenue" data-de="Umsatzrealisierung">Revenue recognition</option><option value="estimates" data-de="Rückstellungen und Schätzungen">Reserves and estimates</option><option value="depreciation" data-de="Abschreibungen und Nutzungsdauern">Depreciation and useful lives</option><option value="non_gaap" data-de="Nicht-GAAP-Kennzahlen">Non-GAAP measures</option></select></div>
+      <p class="topic-note" data-de="Themenfilter gleichen nur Titel und Quellenbeschreibungen ab, nicht den Inhalt der Berichte.">Topic filters match filing titles and source descriptions only, not the documents’ full text.</p>
     </div>
-    <div class="search-actions"><button type="button"><span data-de="Berichte suchen">Find filings</span></button></div>
-  </div></section>
+    <p class="market-note" id="market-note" hidden></p>
+    <div class="search-actions"><button id="company-search-submit" type="submit">Find filings</button></div>
+  </form></section>
+  <section id="company-results" class="company-results" aria-labelledby="results-heading" hidden>
+    <div class="results-header"><h2 id="results-heading" data-de="Suchergebnisse">Search results</h2><button id="back-to-feed" type="button" data-de="Aktuelle Berichte">Recent Filings</button></div>
+    <p id="search-status" class="search-status" aria-live="polite"></p>
+    <div id="selection-toolbar" class="selection-toolbar" hidden>
+      <div><p class="selection-title" data-de="Berichte zur Analyse auswählen">Select filings to analyze</p><p id="selection-count" class="selection-count" aria-live="polite"></p></div>
+    </div>
+    <div id="search-results"></div>
+  </section>
   <section class="feed" aria-label="Recent filings" data-de-aria-label="Aktuelle Berichte">
     <h2 class="feed-heading" data-de="Aktuelle Berichte">Recent Filings</h2>
     <p class="feed-description" data-de="Neue SEC-Berichte sowie offizielle Meldungen von BaFin und EZB. Öffnen Sie die Originalquelle für Einzelheiten.">New SEC filings and official notices from BaFin and the ECB. Open the source for details.</p>
     <details class="feed-filters"><summary data-de="Nach Quelle oder Datum filtern">Filter by source or date</summary><form class="filter-controls"><label><span data-de="Quelle">Filing source</span><select name="source"><option value="" data-de="Alle Quellen">All sources</option><option>SEC</option><option>BaFin</option><option>ECB</option></select></label><label><span data-de="Ab Datum">From date</span><input name="from" type="date"></label><label><span data-de="Bis Datum">To date</span><input name="to" type="date"></label><button type="submit"><span data-de="Filter anwenden">Apply filters</span></button><button type="reset"><span data-de="Zurücksetzen">Clear</span></button></form></details>
-    <!-- FEED_ITEMS -->
+    <div id="recent-filings"><!-- FEED_ITEMS --></div>
   </section></main>
   <script data-cfasync="false">
     const languageKey = 'pageLanguage';
     const toggle = document.getElementById('language-toggle');
+    const reportingYearSelect = document.getElementById('reporting-year');
+    for (let year = new Date().getUTCFullYear(); year >= 1990; year -= 1) {
+      const option = document.createElement('option');
+      option.value = String(year);
+      option.textContent = String(year);
+      reportingYearSelect.append(option);
+    }
     const text = [...document.querySelectorAll('[data-de]')].map(element => ({
       element, en: element.textContent, de: element.getAttribute('data-de')
     }));
@@ -135,12 +202,77 @@
         element, attribute, en: element.getAttribute(attribute), de: element.getAttribute(`data-de-${attribute}`)
       }))
     );
+    let lastSearchResult = null;
+    const selectedFilingKeys = new Set();
     function showLanguage(language) {
+      const viewState = lastSearchResult === null ? null : {
+        resultsHidden: document.getElementById('company-results').hidden,
+        feedHidden: document.querySelector('.feed').hidden,
+        expanded: new Set([...document.querySelectorAll('.search-result-company')]
+          .filter(company => company.querySelector('.company-toggle')?.getAttribute('aria-expanded') === 'true')
+          .map(company => company.dataset.companyKey)),
+        analyzed: new Set([...document.querySelectorAll('.search-result-company')]
+          .filter(company => company.querySelector('.analysis-status')?.textContent)
+          .map(company => company.dataset.companyKey))
+      };
       for (const item of text) item.element.textContent = item[language];
       for (const item of attributes) item.element.setAttribute(item.attribute, item[language]);
       document.documentElement.lang = language;
       document.getElementById('language-name').textContent = language === 'de' ? 'English' : 'Deutsch';
       document.getElementById('language-flag').textContent = language === 'de' ? '🇺🇸' : '🇩🇪';
+      refreshMarketPresentation();
+      if (lastSearchResult !== null) {
+        if (lastSearchResult.market === 'DE') displayGermanResults(lastSearchResult.filings);
+        else displayUsResults(lastSearchResult.companies);
+        for (const company of document.querySelectorAll('.search-result-company')) {
+          const key = company.dataset.companyKey;
+          const toggle = company.querySelector('.company-toggle');
+          const content = company.querySelector('.company-details');
+          if (viewState.expanded.has(key) && toggle && content) {
+            toggle.textContent = searchCopy[language].showLess;
+            toggle.setAttribute('aria-expanded', 'true');
+            content.hidden = false;
+          }
+          if (viewState.analyzed.has(key)) {
+            const analysisStatus = company.querySelector('.analysis-status');
+            if (analysisStatus) analysisStatus.textContent = searchCopy[language].analysisPending;
+          }
+        }
+        document.getElementById('company-results').hidden = viewState.resultsHidden;
+        document.querySelector('.feed').hidden = viewState.feedHidden;
+        syncSelectionControls();
+      }
+    }
+    function refreshMarketPresentation() {
+      const market = document.querySelector('input[name="market"]:checked')?.value ?? 'US';
+      const german = market === 'DE', germanLanguage = document.documentElement.lang === 'de';
+      for (const radio of document.querySelectorAll('input[name="market"]')) {
+        const label = radio.closest('label');
+        if (!label) continue;
+        label.className = radio.checked ? 'market-option selected' : 'market-option';
+        if (radio.checked) label.setAttribute('aria-current', 'true');
+        else label.removeAttribute('aria-current');
+      }
+      document.getElementById('company-label').textContent = german
+        ? (germanLanguage ? 'Deutscher Firmenname oder EUID' : 'German company name or EUID')
+        : (germanLanguage ? 'Unternehmen, Börsenkürzel oder CIK' : 'Company name, ticker, or CIK');
+      document.getElementById('year-label').textContent = german
+        ? (germanLanguage ? 'Veröffentlichungsjahr' : 'Publication year')
+        : (germanLanguage ? 'Berichtsjahr' : 'Reporting year');
+      document.getElementById('us-company').placeholder = german ? 'z. B. Siemens AG' : (germanLanguage ? 'z. B. PepsiCo oder PEP' : 'e.g., PepsiCo or PEP');
+      document.getElementById('company-search-submit').textContent = german
+        ? (germanLanguage ? 'Veröffentlichungen suchen' : 'Find German publications')
+        : (germanLanguage ? 'Berichte suchen' : 'Find filings');
+      const typeSelect = document.getElementById('filing-type');
+      for (const option of typeSelect.options) {
+        option.hidden = Boolean(option.dataset.market && option.dataset.market !== market);
+      }
+      if (typeSelect.selectedOptions[0]?.hidden) typeSelect.value = 'any';
+      const note = document.getElementById('market-note');
+      note.hidden = !german;
+      note.textContent = german
+        ? (germanLanguage ? 'Die Treffer erscheinen hier. Ein Klick auf einen Titel öffnet das Dokument im offiziellen Unternehmensregister. Für manche hinterlegten Jahresabschlüsse ist eine Registrierung erforderlich.' : 'Results appear here. Click a title to open the document in the official Unternehmensregister. Some deposited financial statements require registration.')
+        : '';
     }
     let savedLanguage;
     try { savedLanguage = localStorage.getItem(languageKey); } catch (_) { /* Private storage may be unavailable. */ }
@@ -154,13 +286,284 @@
     const feed = document.querySelector('.feed');
     const filterForm = feed.querySelector('.filter-controls');
     const status = feed.querySelector('.feed-status');
+    const recentFilings = document.getElementById('recent-filings');
+    const companySearchForm = document.getElementById('company-search-form');
+    const companyResults = document.getElementById('company-results');
+    const companyResultsContent = document.getElementById('search-results');
+    const companySearchStatus = document.getElementById('search-status');
+    const companySearchButton = document.getElementById('company-search-submit');
+    const selectionToolbar = document.getElementById('selection-toolbar');
+    const selectionCount = document.getElementById('selection-count');
+    const searchCopy = {
+      en: { loading: 'Searching selected market…', noCompanies: 'No matching company found in this market.', noFilings: 'No filings match the selected type and reporting year.', noFilingsCompany: 'No matching filings for this company.', noGermanFilings: 'No matching publications were found in the German register.', filed: 'Filed', period: 'Reporting period', cik: 'CIK', ticker: 'Ticker', recent: 'Recent Filings', showMore: 'Show more', showLess: 'Show less', select: 'Select', selected: 'Selected', selectAll: 'Select all', deselectAll: 'Deselect all', selectedCount: count => `${count} selected`, analyze: 'Analyze selected', analysisPending: 'AI analysis is not connected yet. Your selections will be ready here once the analyzer is implemented.', filingAction: (action, title) => `${action} filing: ${title}`, usCount: count => `${count} ${count === 1 ? 'filing' : 'filings'}`, deCount: count => `${count} ${count === 1 ? 'publication' : 'publications'}`, error: 'Could not search filings. Please try again.' },
+      de: { loading: 'Suche im ausgewählten Markt…', noCompanies: 'In diesem Markt wurde kein passendes Unternehmen gefunden.', noFilings: 'Keine Berichte für die ausgewählte Berichtsart und das Berichtsjahr gefunden.', noFilingsCompany: 'Für dieses Unternehmen wurden keine passenden Berichte gefunden.', noGermanFilings: 'Im deutschen Register wurden keine passenden Veröffentlichungen gefunden.', filed: 'Eingereicht', period: 'Berichtszeitraum', cik: 'CIK', ticker: 'Ticker', recent: 'Aktuelle Berichte', showMore: 'Mehr anzeigen', showLess: 'Weniger anzeigen', select: 'Auswählen', selected: 'Ausgewählt', selectAll: 'Alle auswählen', deselectAll: 'Auswahl aufheben', selectedCount: count => `${count} ausgewählt`, analyze: 'Ausgewählte analysieren', analysisPending: 'Die KI-Analyse ist noch nicht angebunden. Sobald der Analysator implementiert ist, können die Auswahlen hier verwendet werden.', filingAction: (action, title) => `${action === 'Auswählen' ? 'Bericht auswählen' : 'Auswahl aufheben für Bericht'}: ${title}`, usCount: count => `${count} ${count === 1 ? 'Bericht' : 'Berichte'}`, deCount: count => `${count} ${count === 1 ? 'Veröffentlichung' : 'Veröffentlichungen'}`, error: 'Berichte konnten nicht gesucht werden. Bitte erneut versuchen.' }
+    };
+    function hideCompanyResults() {
+      companyResults.hidden = true;
+      feed.hidden = false;
+    }
+    document.getElementById('back-to-feed').addEventListener('click', hideCompanyResults);
+    for (const radio of document.querySelectorAll('input[name="market"]')) radio.addEventListener('change', () => {
+      refreshMarketPresentation();
+      hideCompanyResults();
+    });
+    function addSearchText(parent, tag, className, value) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      node.textContent = value;
+      parent.append(node);
+      return node;
+    }
+    function currentFilingKeys() {
+      if (!lastSearchResult) return [];
+      if (lastSearchResult.market === 'DE') return lastSearchResult.filings.map(filing => `DE:${filing.url}`);
+      return lastSearchResult.companies.flatMap(company => company.filings.map(filing => `US:${filing.accession}`));
+    }
+    function syncSelectionControls() {
+      const copy = searchCopy[language];
+      const keys = currentFilingKeys();
+      selectionToolbar.hidden = keys.length === 0;
+      selectionCount.textContent = copy.selectedCount(selectedFilingKeys.size);
+      for (const button of companyResultsContent.querySelectorAll('.filing-selection-button')) {
+        const selected = selectedFilingKeys.has(button.dataset.filingKey);
+        const action = selected ? copy.selected : copy.select;
+        button.textContent = action;
+        button.setAttribute('aria-label', copy.filingAction(action, button.dataset.filingTitle));
+        button.setAttribute('aria-pressed', String(selected));
+      }
+      for (const button of companyResultsContent.querySelectorAll('.company-analyze-button')) {
+        const groupKeys = JSON.parse(button.dataset.filingKeys);
+        button.disabled = !groupKeys.some(key => selectedFilingKeys.has(key));
+      }
+      for (const button of companyResultsContent.querySelectorAll('.company-select-all')) {
+        const groupKeys = JSON.parse(button.dataset.filingKeys);
+        const allSelected = groupKeys.length > 0 && groupKeys.every(key => selectedFilingKeys.has(key));
+        button.textContent = allSelected ? copy.deselectAll : copy.selectAll;
+        button.setAttribute('aria-pressed', String(allSelected));
+      }
+    }
+    function filingKey(market, filing) {
+      return market === 'DE' ? `DE:${filing.url}` : `US:${filing.accession}`;
+    }
+    function addFilingSelection(row, market, filing, title) {
+      const key = filingKey(market, filing);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'filing-selection-button';
+      button.dataset.filingKey = key;
+      button.dataset.filingTitle = title;
+      button.setAttribute('aria-pressed', 'false');
+      button.textContent = searchCopy[language].select;
+      button.setAttribute('aria-label', searchCopy[language].filingAction(searchCopy[language].select, title));
+      button.addEventListener('click', () => {
+        if (selectedFilingKeys.has(key)) selectedFilingKeys.delete(key);
+        else selectedFilingKeys.add(key);
+        companyResultsContent.querySelectorAll('.analysis-status').forEach(status => { status.textContent = ''; });
+        syncSelectionControls();
+      });
+      row.append(button);
+    }
+    function addCompanyAnalysisControls(content, market, filings) {
+      const keys = filings.map(filing => market === 'DE' ? `DE:${filing.url}` : `US:${filing.accession}`);
+      if (!keys.length) return;
+      const footer = document.createElement('div');
+      footer.className = 'analysis-footer';
+      const status = document.createElement('p');
+      status.className = 'analysis-status';
+      status.setAttribute('aria-live', 'polite');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'company-analyze-button';
+      button.textContent = searchCopy[language].analyze;
+      button.dataset.filingKeys = JSON.stringify(keys);
+      button.disabled = !keys.some(key => selectedFilingKeys.has(key));
+      button.addEventListener('click', () => {
+        if (button.disabled) return;
+        status.textContent = searchCopy[language].analysisPending;
+      });
+      footer.append(status, button);
+      content.append(footer);
+    }
+    function createCompanyDisclosure(name, count, countLabel, copy, market, filings, companyKey) {
+      const details = document.createElement('section');
+      details.className = 'search-result-company';
+      details.dataset.companyKey = companyKey;
+      const keys = filings.map(filing => filingKey(market, filing));
+      const header = document.createElement('div');
+      header.className = 'company-result-header';
+      const heading = document.createElement('div');
+      heading.className = 'company-result-heading';
+      addSearchText(heading, 'span', 'company-name', name);
+      addSearchText(heading, 'span', 'company-count', countLabel(count));
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'company-toggle';
+      toggle.textContent = copy.showMore;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.hidden = count === 0;
+      const selectAll = document.createElement('button');
+      selectAll.type = 'button';
+      selectAll.className = 'company-select-all';
+      selectAll.textContent = copy.selectAll;
+      selectAll.dataset.filingKeys = JSON.stringify(keys);
+      selectAll.setAttribute('aria-pressed', 'false');
+      selectAll.hidden = keys.length === 0;
+      selectAll.addEventListener('click', () => {
+        const allSelected = keys.length > 0 && keys.every(key => selectedFilingKeys.has(key));
+        if (allSelected) keys.forEach(key => selectedFilingKeys.delete(key));
+        else keys.forEach(key => selectedFilingKeys.add(key));
+        content.querySelectorAll('.analysis-status').forEach(status => { status.textContent = ''; });
+        syncSelectionControls();
+      });
+      const content = document.createElement('div');
+      content.className = 'company-details';
+      content.hidden = true;
+      const selectionActions = document.createElement('div');
+      selectionActions.className = 'company-selection-actions';
+      selectionActions.append(selectAll);
+      content.append(selectionActions);
+      toggle.addEventListener('click', () => {
+        const expanded = content.hidden;
+        if (!expanded) {
+          keys.forEach(key => selectedFilingKeys.delete(key));
+          content.querySelectorAll('.analysis-status').forEach(status => { status.textContent = ''; });
+        }
+        content.hidden = !expanded;
+        toggle.textContent = expanded ? copy.showLess : copy.showMore;
+        toggle.setAttribute('aria-expanded', String(expanded));
+        syncSelectionControls();
+      });
+      const actions = document.createElement('div');
+      actions.className = 'company-result-actions';
+      actions.append(toggle);
+      header.append(heading, actions);
+      details.append(header, content);
+      return { details, content };
+    }
+    function displayUsResults(companies) {
+      const copy = searchCopy[language];
+      companyResultsContent.replaceChildren();
+      if (!companies.length) {
+        companySearchStatus.textContent = copy.noCompanies;
+        syncSelectionControls();
+        return;
+      }
+      companySearchStatus.textContent = companies.some(company => company.filings.length) ? '' : copy.noFilings;
+      for (const company of companies) {
+        const { details, content } = createCompanyDisclosure(company.name, company.filings.length, copy.usCount, copy, 'US', company.filings, `US:${company.cik}`);
+        const metadata = [company.ticker && `${copy.ticker}: ${company.ticker}`, `${copy.cik}: ${company.cik}`].filter(Boolean).join(' · ');
+        addSearchText(content, 'p', 'result-company-meta', metadata);
+        if (!company.filings.length) addSearchText(content, 'p', 'result-company-meta', copy.noFilingsCompany);
+        else {
+          const list = document.createElement('ul');
+          list.className = 'result-filings';
+          for (const filing of company.filings) {
+            const row = document.createElement('li');
+            const link = document.createElement('a');
+            const destination = new URL(filing.url);
+            link.href = destination.origin === 'https://www.sec.gov' ? destination.href : filing.indexUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            const label = filing.form === '10-K' ? (language === 'de' ? 'Jahresbericht (Form 10-K)' : 'Annual report (Form 10-K)')
+              : filing.form === '20-F' ? (language === 'de' ? 'Jahresbericht eines ausländischen Emittenten (Form 20-F)' : 'Foreign issuer annual report (Form 20-F)')
+                : filing.form === '10-Q' ? (language === 'de' ? 'Quartalsbericht (Form 10-Q)' : 'Quarterly report (Form 10-Q)')
+                  : `${filing.description || 'SEC filing'} (Form ${filing.form})`;
+            link.textContent = `${company.name} — ${label}`;
+            row.append(link);
+            const date = document.createElement('span');
+            date.className = 'result-filing-meta';
+            date.textContent = ` · ${copy.period}: ${filing.reportDate || '—'} · ${copy.filed}: ${filing.filingDate}`;
+            row.append(date);
+            addFilingSelection(row, 'US', filing, `${company.name} — ${label}`);
+            list.append(row);
+          }
+          content.append(list);
+          addCompanyAnalysisControls(content, 'US', company.filings);
+        }
+        companyResultsContent.append(details);
+      }
+      syncSelectionControls();
+    }
+    function displayGermanResults(filings) {
+      const copy = searchCopy[language];
+      companyResultsContent.replaceChildren();
+      if (!filings.length) {
+        companySearchStatus.textContent = copy.noGermanFilings;
+        syncSelectionControls();
+        return;
+      }
+      companySearchStatus.textContent = '';
+      const groups = new Map();
+      for (const filing of filings) {
+        if (!groups.has(filing.company)) groups.set(filing.company, []);
+        groups.get(filing.company).push(filing);
+      }
+      for (const [company, companyFilings] of groups) {
+        const { details, content } = createCompanyDisclosure(company, companyFilings.length, copy.deCount, copy, 'DE', companyFilings, `DE:${company}`);
+        const list = document.createElement('ul');
+        list.className = 'result-filings';
+        for (const filing of companyFilings) {
+          const row = document.createElement('li');
+          const destination = new URL(filing.url);
+          if (destination.origin !== 'https://www.unternehmensregister.de') continue;
+          const link = document.createElement('a');
+          link.href = destination.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = filing.title;
+          row.append(link);
+          const metadata = document.createElement('span');
+          metadata.className = 'result-filing-meta';
+          const date = filing.date ? new Intl.DateTimeFormat(language === 'de' ? 'de-DE' : 'en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${filing.date}T00:00:00Z`)) : '';
+          metadata.textContent = ` · ${[filing.information, date].filter(Boolean).join(' · ')}`;
+          row.append(metadata);
+          addFilingSelection(row, 'DE', filing, filing.title);
+          list.append(row);
+        }
+        content.append(list);
+        addCompanyAnalysisControls(content, 'DE', companyFilings);
+        companyResultsContent.append(details);
+      }
+      syncSelectionControls();
+    }
+    companySearchForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      selectedFilingKeys.clear();
+      lastSearchResult = null;
+      companySearchButton.disabled = true;
+      companySearchForm.setAttribute('aria-busy', 'true');
+      companyResults.hidden = false;
+      feed.hidden = true;
+      companyResultsContent.replaceChildren();
+      syncSelectionControls();
+      companySearchStatus.textContent = searchCopy[language].loading;
+      const query = new URLSearchParams(new FormData(companySearchForm));
+      try {
+        const response = await fetch(`/api/company-filings?${query}`, { headers: { accept: 'application/json' } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || searchCopy[language].error);
+        lastSearchResult = result;
+        if (result.market === 'DE') displayGermanResults(result.filings);
+        else displayUsResults(result.companies);
+        document.getElementById('results-heading').textContent = language === 'de' ? 'Suchergebnisse' : 'Search results';
+        document.getElementById('back-to-feed').textContent = searchCopy[language].recent;
+        companyResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (error) {
+        lastSearchResult = null;
+        companySearchStatus.textContent = error.message || searchCopy[language].error;
+        syncSelectionControls();
+      } finally {
+        companySearchButton.disabled = false;
+        companySearchForm.removeAttribute('aria-busy');
+      }
+    });
     const filters = () => new URLSearchParams(new FormData(filterForm));
     function mergeFeed(markup) {
       const parsed = document.createElement('div');
       parsed.innerHTML = markup;
-      feed.querySelectorAll('.feed-item, .feed-empty').forEach(item => item.remove());
+      recentFilings.querySelectorAll('.feed-item, .feed-empty').forEach(item => item.remove());
       for (const incoming of parsed.querySelectorAll('.feed-item, .feed-empty')) {
-        feed.insertBefore(incoming, status);
+        recentFilings.insertBefore(incoming, status);
       }
     }
     let loading = false;
