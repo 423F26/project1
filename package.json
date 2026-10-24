@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/dev.js",
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test && python -B -m unittest discover -s test -p test_*.py"
   },
   "engines": {
     "node": ">=22.13.0"

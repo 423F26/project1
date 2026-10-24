@@ -1,0 +1,4 @@
+torch==2.14.1
+transformers==5.20.2
+sentencepiece==0.2.1
+pypdf==6.21.2

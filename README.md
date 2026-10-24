@@ -1,7 +1,7 @@
 # Untitled (Zwicky)
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
-Search recent U.S. company filings from the SEC or German publications from the official Unternehmensregister, with results displayed in the app. Both market modes share company, type, year, and topic controls; type options reflect each market's source. Topic matches currently use titles and source descriptions rather than full filing text. Browse saved SEC, BaFin, and ECB updates in English or German. Cross-market document analysis and bias analysis are planned.
+Search recent U.S. company filings from the SEC or German publications from the official Unternehmensregister, with results displayed in the app. Both market modes share company, type, year, and topic controls; type options reflect each market's source. Topic matches currently use titles and source descriptions rather than full filing text. Select search results for local passage-level sentiment analysis in a separate CPU worker. Sentiment is not bias analysis. Browse saved SEC, BaFin, and ECB updates in English or German.
 
 [Web app](https://esof423.csit.help)
 
@@ -32,4 +32,4 @@ Install Node.js 22.13+, npm, and OpenSSL. Run `npm ci` and `npm run dev`. Open `
 
 With Docker Compose, HTTPS is published at `127.0.0.1:19283`.
 
-The app container runs unprivileged with all Linux capabilities dropped. It can write to its RSS volume and temporary storage. Defaults: 0.25 CPU, 128 MiB memory, 32 processes, and 10 requests/minute per direct socket source address. A separate initialization service runs as root to set volume ownership.
+The web container runs unprivileged with all Linux capabilities dropped. Its limits remain 0.25 CPU, 128 MiB memory, and 32 processes. A separate local inference worker is capped at 2 CPU, 4 GiB memory, and 64 processes. It uses FinBERT (non-commercial license) for English sentiment and local translation for German text. Analysis artifacts have a 25 GiB application quota with oldest-completed-first pruning; see [Operations](docs/OPERATIONS.md).

@@ -1,10 +1,12 @@
 'use strict';
 
-const { readFileSync } = require('node:fs');
+const { readFileSync, mkdirSync } = require('node:fs');
+const { join } = require('node:path');
 const { createHash } = require('node:crypto');
 const https = require('node:https');
 const { openStore, startCollector } = require('./rss');
 const { SearchError, searchUs, searchGermany, validateSearch } = require('./company-search');
+const { MAX_FILINGS, openAnalysisStore } = require('./analysis-store');
 
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -21,6 +23,29 @@ function hosts(value) {
 function reply(response, status, body = '', extraHeaders = {}) {
   response.writeHead(status, { ...headers, ...extraHeaders, 'content-length': Buffer.byteLength(body) });
   response.end(body);
+}
+
+function readJsonBody(request, limit = 16 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0, tooLarge = false;
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) tooLarge = true;
+      else if (!tooLarge) chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (tooLarge) return reject(Object.assign(new Error('Request body is too large.'), { status: 413 }));
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
+      catch { reject(Object.assign(new Error('Invalid JSON request body.'), { status: 400 })); }
+    });
+    request.on('error', () => reject(Object.assign(new Error('Could not read request body.'), { status: 400 })));
+  });
+}
+
+function safeStatus(job) {
+  const { id, market, title, status, error, created_at, updated_at, completed_at } = job;
+  return { id, market, title, status, error, createdAt: created_at, updatedAt: updated_at, completedAt: completed_at };
 }
 
 function escapeHtml(value) {
@@ -80,8 +105,50 @@ function createServer(options) {
     const host = request.headers.host?.toLowerCase().replace(/:\d+$/, '');
     if (recent.count > options.rateLimit) return reply(response, 429, 'Too many requests.\n');
     if (!options.allowedHosts.has(host)) return reply(response, 421, 'Misdirected request.\n');
-    if (request.method !== 'GET') return reply(response, 405, 'Method not allowed.\n');
     const url = new URL(request.url, 'https://localhost');
+    const createAnalysis = url.pathname === '/api/analysis-jobs' && request.method === 'POST';
+    if (request.method !== 'GET' && !createAnalysis) return reply(response, 405, 'Method not allowed.\n');
+    if (createAnalysis) {
+      if (request.headers['transfer-encoding'] || Number(request.headers['content-length'] ?? 0) > 16 * 1024) return reply(response, 413, 'Request body is too large or unsupported.\n');
+      if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) return reply(response, 415, 'Expected a JSON request body.\n');
+      if (request.headers.origin && request.headers.origin !== `https://${request.headers.host}`) return reply(response, 403, 'Cross-origin request rejected.\n');
+      if (request.headers['sec-fetch-site'] === 'cross-site') return reply(response, 403, 'Cross-origin request rejected.\n');
+      if (!options.analysisStore) return reply(response, 503, JSON.stringify({ error: 'Analysis is not configured.' }), { 'content-type': 'application/json; charset=utf-8' });
+      try {
+        const body = await readJsonBody(request);
+        const jobs = options.analysisStore.enqueue(body?.filings).map(safeStatus);
+        return reply(response, 202, JSON.stringify({ jobs }), { 'content-type': 'application/json; charset=utf-8' });
+      } catch (error) {
+        return reply(response, error.status ?? 400, JSON.stringify({ error: error.message || 'Invalid analysis request.' }), { 'content-type': 'application/json; charset=utf-8' });
+      }
+    }
+    if (url.pathname === '/api/analysis-jobs') {
+      if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
+      if (!options.analysisStore) return reply(response, 503, JSON.stringify({ error: 'Analysis is not configured.' }), { 'content-type': 'application/json; charset=utf-8' });
+      try {
+        const ids = (url.searchParams.get('ids') ?? '').split(',');
+        if (!ids.length || ids.length > MAX_FILINGS) throw new Error('Invalid job IDs.');
+        return reply(response, 200, JSON.stringify({ jobs: options.analysisStore.getMany(ids).map(safeStatus) }), { 'content-type': 'application/json; charset=utf-8' });
+      } catch (error) {
+        return reply(response, 400, JSON.stringify({ error: error.message || 'Invalid job IDs.' }), { 'content-type': 'application/json; charset=utf-8' });
+      }
+    }
+    const analysisJob = /^\/api\/analysis-jobs\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (analysisJob) {
+      if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
+      if (!options.analysisStore) return reply(response, 503, JSON.stringify({ error: 'Analysis is not configured.' }), { 'content-type': 'application/json; charset=utf-8' });
+      const job = options.analysisStore.get(analysisJob[1]);
+      if (!job) return reply(response, 404, JSON.stringify({ error: 'Analysis job not found.' }), { 'content-type': 'application/json; charset=utf-8' });
+      let result = null;
+      if (job.status === 'complete') {
+        try {
+          const raw = readFileSync(join(options.analysisDataDir ?? '/analysis', 'documents', `${job.id}.result.json`));
+          if (raw.length > 16 * 1024 * 1024) throw new Error('Analysis result exceeds the response limit.');
+          result = JSON.parse(raw.toString('utf8'));
+        } catch { return reply(response, 500, JSON.stringify({ error: 'Stored analysis result is unavailable.' }), { 'content-type': 'application/json; charset=utf-8' }); }
+      }
+      return reply(response, 200, JSON.stringify({ job: safeStatus(job), result }), { 'content-type': 'application/json; charset=utf-8' });
+    }
     if (url.pathname === '/api/filings') {
       if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
       const source = url.searchParams.get('source') ?? '';
@@ -143,7 +210,10 @@ if (require.main === module) {
   const key = process.env.TLS_KEY_PATH, cert = process.env.TLS_CERT_PATH;
   if (!key || !cert) throw new Error('TLS_KEY_PATH and TLS_CERT_PATH are required');
   const store = openStore(process.env.RSS_DB_PATH ?? '/data/rss.sqlite');
-  const server = createServer({ tls: { key: readFileSync(key), cert: readFileSync(cert), minVersion: 'TLSv1.2' }, allowedHosts, rateLimit, html: readFileSync(`${__dirname}/../public/index.html`, 'utf8'), store });
+  const analysisDataDir = process.env.ANALYSIS_DATA_DIR ?? '/analysis';
+  mkdirSync(analysisDataDir, { recursive: true });
+  const analysisStore = openAnalysisStore(join(analysisDataDir, 'analysis.sqlite'));
+  const server = createServer({ tls: { key: readFileSync(key), cert: readFileSync(cert), minVersion: 'TLSv1.2' }, allowedHosts, rateLimit, html: readFileSync(`${__dirname}/../public/index.html`, 'utf8'), store, analysisStore, analysisDataDir });
   server.listen(port, '0.0.0.0', () => console.log(`Listening on https://0.0.0.0:${port}`));
   startCollector(store);
 }

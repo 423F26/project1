@@ -1,0 +1,48 @@
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HF_HOME=/opt/models \
+    MODEL_CACHE=/opt/models \
+    TRANSFORMERS_OFFLINE=1 \
+    HF_HUB_OFFLINE=1 \
+    ANALYSIS_DB_PATH=/analysis/analysis.sqlite \
+    ANALYSIS_DATA_DIR=/analysis \
+    MAX_ANALYSIS_STORAGE_BYTES=26843545600 \
+    SEC_USER_AGENT="FinancialBiasDetector/0.2.0 (charles.smith26@student.montana.edu)"
+
+WORKDIR /app
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.14.1 \
+    && mkdir -p /opt/models /analysis \
+    && groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin app
+COPY requirements-worker.txt ./
+RUN pip install --no-cache-dir -r requirements-worker.txt
+RUN HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0 python - <<'PY'
+from huggingface_hub import snapshot_download
+from pathlib import Path
+import json
+revisions = {
+    "ProsusAI/finbert": Path(snapshot_download(repo_id="ProsusAI/finbert", revision="main", cache_dir="/opt/models")).name,
+    "Helsinki-NLP/opus-mt-de-en": Path(snapshot_download(repo_id="Helsinki-NLP/opus-mt-de-en", revision="main", cache_dir="/opt/models")).name,
+}
+Path("/opt/models/model-revisions.json").write_text(json.dumps(revisions), encoding="utf-8")
+PY
+RUN HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python - <<'PY'
+import torch
+from transformers import AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, AutoTokenizer
+torch.set_num_threads(2)
+tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert", cache_dir="/opt/models", local_files_only=True)
+model = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert", cache_dir="/opt/models", local_files_only=True).eval()
+with torch.inference_mode():
+    assert model(**tokenizer("Revenue increased and operating costs declined.", return_tensors="pt")).logits.shape[-1] == 3
+translation_tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en", cache_dir="/opt/models", local_files_only=True)
+translator = AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-de-en", cache_dir="/opt/models", local_files_only=True).eval()
+with torch.inference_mode():
+    translated = translator.generate(**translation_tokenizer("Der Umsatz ist gestiegen.", return_tensors="pt"), max_new_tokens=64)
+assert translation_tokenizer.decode(translated[0], skip_special_tokens=True).strip()
+PY
+COPY --chown=1000:1000 src/analysis_worker.py src/analysis-schema.sql ./
+COPY --chown=1000:1000 docs/MODEL-NOTICES.md ./MODEL-NOTICES.md
+USER 1000:1000
+CMD ["python", "analysis_worker.py"]

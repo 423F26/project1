@@ -1,6 +1,6 @@
 # Financial bias: planned analysis
 
-This is the team's agreed specification. The app collects feed metadata and excerpts. It does **not** retrieve full filings, run an analysis model, calculate scores, or highlight documents.
+This is the team's agreed specification. The app can retrieve selected filings and run local passage-level financial sentiment. It does **not** produce bias findings, calculate bias scores, or highlight documents. Sentiment is not financial bias and must never be substituted for the documented review rules or score.
 
 The planned report helps finance professionals and everyday investors understand a company. Use plain explanations while keeping useful figures, terms, and qualifications. The scoring rules are product choices that still need testing against reviewed examples.
 
@@ -69,7 +69,11 @@ Preserve source layout, tables, and page references. Connect exact highlighted p
 
 ## Future collection
 
-Once retrieval and analysis exist, analyze new material during [hourly feed collection](ARCHITECTURE.md#feed-and-page-behavior) and publish results automatically. Retrieve full linked documents when available; otherwise apply the no-score rule. Hourly processing uses this definition; it does not rewrite the rules or update their research basis.
+When full bias analysis is implemented, analyze new material during [hourly feed collection](ARCHITECTURE.md#feed-and-page-behavior) and publish results automatically. Retrieve full linked documents when available; otherwise apply the no-score rule. The selected-filing sentiment worker does not perform this review or alter its rules or research basis.
+
+## Sentiment model boundary
+
+The selected-filing worker classifies extracted passages as positive, negative, or neutral with local CPU inference. English passages use ProsusAI FinBERT. German passages are translated locally to English before classification; the original passage remains the source text, and the translation is recorded as model input provenance. These outputs are sentiment only: they do not identify bias, support claims, establish document completeness, or affect score eligibility. FinBERT weights are licensed CC BY-NC-SA 4.0 for non-commercial use only. German sentiment quality must be evaluated on reviewed financial-document examples before being described as reliable. Unreadable, inaccessible, unsupported, or incomplete documents are unavailable and cannot be represented as fully analyzed.
 
 ## Research basis
 

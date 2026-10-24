@@ -1,6 +1,6 @@
 # UI/UX Design Template
 
-Approved direction: a quiet, professional financial reading interface. Simplicity and accessibility come first. No established branding; use the descriptive title “Financial review.” Follow the team's [planned bias specification](../BIAS.md); do not invent scores or analysis results. Analysis is not implemented.
+Approved direction: a quiet, professional financial reading interface. Simplicity and accessibility come first. No established branding; use the descriptive title “Financial review.” Follow the team's [planned bias specification](../BIAS.md); do not invent scores or analysis results. Local passage-level sentiment is implemented, but bias/risk reports and score displays are not.
 
 ## Visual rules
 

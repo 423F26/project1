@@ -5,6 +5,7 @@ const { execFileSync } = require('node:child_process');
 const { join } = require('node:path');
 const { createServer } = require('./server');
 const { openStore, startCollector } = require('./rss');
+const { openAnalysisStore } = require('./analysis-store');
 
 const directory = join(__dirname, '..', 'certs', 'dev');
 const key = join(directory, 'tls.key');
@@ -24,6 +25,9 @@ if (!existsSync(key) || !existsSync(cert)) {
 const dataDirectory = join(__dirname, '..', 'data');
 mkdirSync(dataDirectory, { recursive: true });
 const store = openStore(join(dataDirectory, 'rss.sqlite'));
+const analysisDirectory = join(dataDirectory, 'analysis');
+mkdirSync(analysisDirectory, { recursive: true });
+const analysisStore = openAnalysisStore(join(analysisDirectory, 'analysis.sqlite'));
 const port = Number(process.env.PORT ?? 8443);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer from 1 to 65535');
 createServer({
@@ -31,6 +35,6 @@ createServer({
   allowedHosts: new Set(['localhost', '127.0.0.1']),
   rateLimit: 10,
   html: readFileSync(join(__dirname, '..', 'public', 'index.html'), 'utf8'),
-  store
+  store, analysisStore, analysisDataDir: analysisDirectory
 }).listen(port, '127.0.0.1', () => console.log(`Development server: https://localhost:${port} (self-signed certificate)`));
 startCollector(store);

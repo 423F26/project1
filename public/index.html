@@ -204,6 +204,9 @@
     );
     let lastSearchResult = null;
     const selectedFilingKeys = new Set();
+    const analysisStatusByGroup = new Map();
+    const activeAnalysisRuns = new Map();
+    let analysisPolling = false;
     function showLanguage(language) {
       const viewState = lastSearchResult === null ? null : {
         resultsHidden: document.getElementById('company-results').hidden,
@@ -211,9 +214,6 @@
         expanded: new Set([...document.querySelectorAll('.search-result-company')]
           .filter(company => company.querySelector('.company-toggle')?.getAttribute('aria-expanded') === 'true')
           .map(company => company.dataset.companyKey)),
-        analyzed: new Set([...document.querySelectorAll('.search-result-company')]
-          .filter(company => company.querySelector('.analysis-status')?.textContent)
-          .map(company => company.dataset.companyKey))
       };
       for (const item of text) item.element.textContent = item[language];
       for (const item of attributes) item.element.setAttribute(item.attribute, item[language]);
@@ -233,10 +233,9 @@
             toggle.setAttribute('aria-expanded', 'true');
             content.hidden = false;
           }
-          if (viewState.analyzed.has(key)) {
-            const analysisStatus = company.querySelector('.analysis-status');
-            if (analysisStatus) analysisStatus.textContent = searchCopy[language].analysisPending;
-          }
+          const footer = company.querySelector('.analysis-footer');
+          const analysisStatus = company.querySelector('.analysis-status');
+          if (footer && analysisStatus && analysisStatusByGroup.has(footer.dataset.analysisKey)) renderAnalysisStatus(footer.dataset.analysisKey, analysisStatus);
         }
         document.getElementById('company-results').hidden = viewState.resultsHidden;
         document.querySelector('.feed').hidden = viewState.feedHidden;
@@ -295,8 +294,8 @@
     const selectionToolbar = document.getElementById('selection-toolbar');
     const selectionCount = document.getElementById('selection-count');
     const searchCopy = {
-      en: { loading: 'Searching selected market…', noCompanies: 'No matching company found in this market.', noFilings: 'No filings match the selected type and reporting year.', noFilingsCompany: 'No matching filings for this company.', noGermanFilings: 'No matching publications were found in the German register.', filed: 'Filed', period: 'Reporting period', cik: 'CIK', ticker: 'Ticker', recent: 'Recent Filings', showMore: 'Show more', showLess: 'Show less', select: 'Select', selected: 'Selected', selectAll: 'Select all', deselectAll: 'Deselect all', selectedCount: count => `${count} selected`, analyze: 'Analyze selected', analysisPending: 'AI analysis is not connected yet. Your selections will be ready here once the analyzer is implemented.', filingAction: (action, title) => `${action} filing: ${title}`, usCount: count => `${count} ${count === 1 ? 'filing' : 'filings'}`, deCount: count => `${count} ${count === 1 ? 'publication' : 'publications'}`, error: 'Could not search filings. Please try again.' },
-      de: { loading: 'Suche im ausgewählten Markt…', noCompanies: 'In diesem Markt wurde kein passendes Unternehmen gefunden.', noFilings: 'Keine Berichte für die ausgewählte Berichtsart und das Berichtsjahr gefunden.', noFilingsCompany: 'Für dieses Unternehmen wurden keine passenden Berichte gefunden.', noGermanFilings: 'Im deutschen Register wurden keine passenden Veröffentlichungen gefunden.', filed: 'Eingereicht', period: 'Berichtszeitraum', cik: 'CIK', ticker: 'Ticker', recent: 'Aktuelle Berichte', showMore: 'Mehr anzeigen', showLess: 'Weniger anzeigen', select: 'Auswählen', selected: 'Ausgewählt', selectAll: 'Alle auswählen', deselectAll: 'Auswahl aufheben', selectedCount: count => `${count} ausgewählt`, analyze: 'Ausgewählte analysieren', analysisPending: 'Die KI-Analyse ist noch nicht angebunden. Sobald der Analysator implementiert ist, können die Auswahlen hier verwendet werden.', filingAction: (action, title) => `${action === 'Auswählen' ? 'Bericht auswählen' : 'Auswahl aufheben für Bericht'}: ${title}`, usCount: count => `${count} ${count === 1 ? 'Bericht' : 'Berichte'}`, deCount: count => `${count} ${count === 1 ? 'Veröffentlichung' : 'Veröffentlichungen'}`, error: 'Berichte konnten nicht gesucht werden. Bitte erneut versuchen.' }
+      en: { loading: 'Searching selected market…', noCompanies: 'No matching company found in this market.', noFilings: 'No filings match the selected type and reporting year.', noFilingsCompany: 'No matching filings for this company.', noGermanFilings: 'No matching publications were found in the German register.', filed: 'Filed', period: 'Reporting period', cik: 'CIK', ticker: 'Ticker', recent: 'Recent Filings', showMore: 'Show more', showLess: 'Show less', select: 'Select', selected: 'Selected', selectAll: 'Select all', deselectAll: 'Deselect all', selectedCount: count => `${count} selected`, analyze: 'Analyze selected', analysisQueued: count => `Queued ${count} ${count === 1 ? 'filing' : 'filings'} for local analysis.`, analysisRunning: count => `Local analysis is running for ${count} ${count === 1 ? 'filing' : 'filings'}.`, analysisComplete: count => `Local analysis complete for ${count} ${count === 1 ? 'filing' : 'filings'}.`, analysisUnavailable: count => `Analysis is unavailable for ${count} ${count === 1 ? 'filing' : 'filings'}.`, analysisFailed: count => `Analysis failed for ${count} ${count === 1 ? 'filing' : 'filings'}.`, filingAction: (action, title) => `${action} filing: ${title}`, usCount: count => `${count} ${count === 1 ? 'filing' : 'filings'}`, deCount: count => `${count} ${count === 1 ? 'publication' : 'publications'}`, error: 'Could not search filings. Please try again.' },
+      de: { loading: 'Suche im ausgewählten Markt…', noCompanies: 'In diesem Markt wurde kein passendes Unternehmen gefunden.', noFilings: 'Keine Berichte für die ausgewählte Berichtsart und das Berichtsjahr gefunden.', noFilingsCompany: 'Für dieses Unternehmen wurden keine passenden Berichte gefunden.', noGermanFilings: 'Im deutschen Register wurden keine passenden Veröffentlichungen gefunden.', filed: 'Eingereicht', period: 'Berichtszeitraum', cik: 'CIK', ticker: 'Ticker', recent: 'Aktuelle Berichte', showMore: 'Mehr anzeigen', showLess: 'Weniger anzeigen', select: 'Auswählen', selected: 'Ausgewählt', selectAll: 'Alle auswählen', deselectAll: 'Auswahl aufheben', selectedCount: count => `${count} ausgewählt`, analyze: 'Ausgewählte analysieren', analysisQueued: count => `${count} ${count === 1 ? 'Bericht' : 'Berichte'} zur lokalen Analyse vorgemerkt.`, analysisRunning: count => `Lokale Analyse für ${count} ${count === 1 ? 'Bericht' : 'Berichte'} läuft.`, analysisComplete: count => `Lokale Analyse für ${count} ${count === 1 ? 'Bericht' : 'Berichte'} abgeschlossen.`, analysisUnavailable: count => `Analyse für ${count} ${count === 1 ? 'Bericht' : 'Berichte'} nicht verfügbar.`, analysisFailed: count => `Analyse für ${count} ${count === 1 ? 'Bericht' : 'Berichte'} fehlgeschlagen.`, filingAction: (action, title) => `${action === 'Auswählen' ? 'Bericht auswählen' : 'Auswahl aufheben für Bericht'}: ${title}`, usCount: count => `${count} ${count === 1 ? 'Bericht' : 'Berichte'}`, deCount: count => `${count} ${count === 1 ? 'Veröffentlichung' : 'Veröffentlichungen'}`, error: 'Berichte konnten nicht gesucht werden. Bitte erneut versuchen.' }
     };
     function hideCompanyResults() {
       companyResults.hidden = true;
@@ -333,7 +332,7 @@
       }
       for (const button of companyResultsContent.querySelectorAll('.company-analyze-button')) {
         const groupKeys = JSON.parse(button.dataset.filingKeys);
-        button.disabled = !groupKeys.some(key => selectedFilingKeys.has(key));
+        button.disabled = !groupKeys.some(key => selectedFilingKeys.has(key)) || activeAnalysisRuns.has(button.dataset.analysisKey);
       }
       for (const button of companyResultsContent.querySelectorAll('.company-select-all')) {
         const groupKeys = JSON.parse(button.dataset.filingKeys);
@@ -344,6 +343,90 @@
     }
     function filingKey(market, filing) {
       return market === 'DE' ? `DE:${filing.url}` : `US:${filing.accession}`;
+    }
+    function selectedAnalysisFilings(keys) {
+      const selected = new Set(keys.filter(key => selectedFilingKeys.has(key)));
+      if (!lastSearchResult) return [];
+      if (lastSearchResult.market === 'DE') return lastSearchResult.filings
+        .filter(filing => selected.has(filingKey('DE', filing)))
+        .map(filing => ({ market: 'DE', url: filing.url, title: filing.title, formType: '' }));
+      return lastSearchResult.companies.flatMap(company => company.filings
+        .filter(filing => selected.has(filingKey('US', filing)))
+        .map(filing => ({ market: 'US', url: filing.url, cik: company.cik, accession: filing.accession, title: `${company.name} — ${filing.form}`, formType: filing.form })));
+    }
+    function renderAnalysisStatus(groupKey, statusNode) {
+      const state = analysisStatusByGroup.get(groupKey);
+      if (!state) return;
+      statusNode.textContent = state.message ?? searchCopy[language][state.key](state.count);
+    }
+    function setAnalysisStatus(groupKey, key, count, message = null) {
+      analysisStatusByGroup.set(groupKey, { key, count, message });
+      const footer = [...companyResultsContent.querySelectorAll('.analysis-footer')]
+        .find(item => item.dataset.analysisKey === groupKey);
+      const statusNode = footer?.querySelector('.analysis-status');
+      if (statusNode) renderAnalysisStatus(groupKey, statusNode);
+    }
+    function applyAnalysisJobs(groupKey, jobs) {
+      const terminal = new Set(['complete', 'unavailable', 'failed']);
+      const counts = { complete: 0, unavailable: 0, failed: 0 };
+      for (const job of jobs) if (terminal.has(job.status)) counts[job.status] += 1;
+      const count = jobs.length;
+      if (counts.failed) setAnalysisStatus(groupKey, 'analysisFailed', counts.failed);
+      else if (counts.unavailable) setAnalysisStatus(groupKey, 'analysisUnavailable', counts.unavailable);
+      else if (counts.complete === count && count) setAnalysisStatus(groupKey, 'analysisComplete', count);
+      else setAnalysisStatus(groupKey, jobs.some(job => job.status !== 'queued') ? 'analysisRunning' : 'analysisQueued', count);
+      return jobs.length > 0 && jobs.every(job => terminal.has(job.status));
+    }
+    async function pollAnalysis() {
+      if (analysisPolling) return;
+      analysisPolling = true;
+      try {
+        while (activeAnalysisRuns.size) {
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          const ids = [...new Set([...activeAnalysisRuns.values()].flat())].slice(0, 40);
+          if (!ids.length) continue;
+          try {
+            const query = new URLSearchParams({ ids: ids.join(',') });
+            const response = await fetch(`/api/analysis-jobs?${query}`, { headers: { accept: 'application/json' } });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Status unavailable.');
+            const jobsById = new Map(result.jobs.map(job => [job.id, job]));
+            for (const [groupKey, groupIds] of activeAnalysisRuns) {
+              if (!groupIds.length || !groupIds.every(id => ids.includes(id))) continue;
+              const jobs = groupIds.map(id => jobsById.get(id)).filter(Boolean);
+              if (jobs.length !== groupIds.length) setAnalysisStatus(groupKey, 'analysisUnavailable', groupIds.length);
+              else if (!applyAnalysisJobs(groupKey, jobs)) continue;
+              activeAnalysisRuns.delete(groupKey);
+              syncSelectionControls();
+            }
+          } catch (_) { /* Keep queued jobs and retry on the next status interval. */ }
+        }
+      } finally { analysisPolling = false; }
+    }
+    async function submitAnalysis(groupKey, button) {
+      const filings = selectedAnalysisFilings(JSON.parse(button.dataset.filingKeys));
+      if (!filings.length) return;
+      button.disabled = true;
+      setAnalysisStatus(groupKey, 'analysisQueued', filings.length);
+      try {
+        const response = await fetch('/api/analysis-jobs', {
+          method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/json' },
+          body: JSON.stringify({ filings })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Analysis could not be queued.');
+        const jobs = result.jobs ?? [];
+        if (applyAnalysisJobs(groupKey, jobs)) {
+          activeAnalysisRuns.delete(groupKey);
+          syncSelectionControls();
+        } else {
+          activeAnalysisRuns.set(groupKey, jobs.map(job => job.id));
+          pollAnalysis();
+        }
+      } catch (error) {
+        setAnalysisStatus(groupKey, 'analysisFailed', filings.length, error.message || searchCopy[language].analysisFailed(filings.length));
+        syncSelectionControls();
+      }
     }
     function addFilingSelection(row, market, filing, title) {
       const key = filingKey(market, filing);
@@ -363,23 +446,27 @@
       });
       row.append(button);
     }
-    function addCompanyAnalysisControls(content, market, filings) {
+    function addCompanyAnalysisControls(content, market, filings, companyKey) {
       const keys = filings.map(filing => market === 'DE' ? `DE:${filing.url}` : `US:${filing.accession}`);
       if (!keys.length) return;
+      const groupKey = `${companyKey}|${keys.join('|')}`;
       const footer = document.createElement('div');
       footer.className = 'analysis-footer';
+      footer.dataset.analysisKey = groupKey;
       const status = document.createElement('p');
       status.className = 'analysis-status';
       status.setAttribute('aria-live', 'polite');
+      if (analysisStatusByGroup.has(groupKey)) renderAnalysisStatus(groupKey, status);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'company-analyze-button';
       button.textContent = searchCopy[language].analyze;
       button.dataset.filingKeys = JSON.stringify(keys);
-      button.disabled = !keys.some(key => selectedFilingKeys.has(key));
+      button.dataset.analysisKey = groupKey;
+      button.disabled = !keys.some(key => selectedFilingKeys.has(key)) || activeAnalysisRuns.has(groupKey);
       button.addEventListener('click', () => {
         if (button.disabled) return;
-        status.textContent = searchCopy[language].analysisPending;
+        submitAnalysis(groupKey, button);
       });
       footer.append(status, button);
       content.append(footer);
@@ -478,7 +565,7 @@
             list.append(row);
           }
           content.append(list);
-          addCompanyAnalysisControls(content, 'US', company.filings);
+          addCompanyAnalysisControls(content, 'US', company.filings, `US:${company.cik}`);
         }
         companyResultsContent.append(details);
       }
@@ -521,7 +608,7 @@
           list.append(row);
         }
         content.append(list);
-        addCompanyAnalysisControls(content, 'DE', companyFilings);
+        addCompanyAnalysisControls(content, 'DE', companyFilings, `DE:${company}`);
         companyResultsContent.append(details);
       }
       syncSelectionControls();

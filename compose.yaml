@@ -7,11 +7,23 @@ services:
     volumes:
       - rss_data:/data
     restart: "no"
+  analysis-data-init:
+    image: project1-analysis-worker
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    user: root
+    command: ["chown", "-R", "1000:1000", "/analysis"]
+    volumes:
+      - analysis_data:/analysis
+    restart: "no"
   plaintext:
     image: project1-app
     build: .
     depends_on:
       rss-data-init:
+        condition: service_completed_successfully
+      analysis-data-init:
         condition: service_completed_successfully
     ports:
       - "127.0.0.1:19283:19283"
@@ -19,9 +31,11 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set ALLOWED_HOSTS in .env}
       TLS_KEY_PATH: /certs/tls.key
       TLS_CERT_PATH: /certs/tls.crt
+      ANALYSIS_DATA_DIR: /analysis
     volumes:
       - ./certs:/certs:ro
       - rss_data:/data
+      - analysis_data:/analysis
     read_only: true
     tmpfs:
       - /tmp:size=8m,noexec,nosuid,nodev
@@ -33,5 +47,27 @@ services:
     cpus: 0.25
     mem_limit: 128m
     restart: unless-stopped
+  analysis-worker:
+    image: project1-analysis-worker
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      analysis-data-init:
+        condition: service_completed_successfully
+    volumes:
+      - analysis_data:/analysis
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    cpus: 2
+    mem_limit: 4096m
+    restart: unless-stopped
 volumes:
   rss_data:
+  analysis_data:
