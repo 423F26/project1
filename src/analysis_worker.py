@@ -195,10 +195,37 @@ def extract_document(data: bytes, content_type: str, *, require_minimum: bool = 
     return text
 
 
+def german_publication_text(source: bytes) -> str | None:
+    chunks = []
+    for script in re.findall(r"<script\b[^>]*>(.*?)</script\s*>", source.decode("utf-8-sig", errors="replace"), re.S | re.I):
+        prefix = "self.__next_f.push("
+        if not script.startswith(prefix):
+            continue
+        try:
+            chunk, _ = json.JSONDecoder().raw_decode(script[len(prefix):])
+        except ValueError:
+            continue
+        if isinstance(chunk, list) and len(chunk) == 2 and chunk[0] == 1 and isinstance(chunk[1], str):
+            chunks.append(chunk[1])
+    # Read only the publication body from the viewer data; never execute page scripts.
+    bodies = re.findall(r'"publicationText"\s*:\s*("(?:[^"\\]|\\.)*")', "".join(chunks))
+    try:
+        texts = {json.loads(body) for body in bodies}
+    except ValueError:
+        return None
+    if len(texts) == 1:
+        return texts.pop() or None
+    return None
+
+
 def filing_text(job: sqlite3.Row) -> tuple[bytes, str, list[str]]:
     source, content_type = fetch_document(job)
     if job["market"] != "DE" or content_type not in {"text/html", "application/xhtml+xml"}:
         return source, extract_document(source, content_type), [job["filing_url"]]
+
+    embedded = german_publication_text(source)
+    if embedded:
+        return source, extract_document(embedded.encode("utf-8"), "text/html"), [job["filing_url"]]
 
     links = DocumentLinks()
     links.feed(source.decode("utf-8-sig", errors="replace"))
@@ -308,7 +335,7 @@ def chunk_text(tokenizer: Any, passage: str, max_tokens: int = 480) -> list[str]
     try:
         encoded = tokenizer(passage, add_special_tokens=True, truncation=False, return_offsets_mapping=True)
         offsets = [offset for offset in encoded["offset_mapping"] if offset[1] > offset[0]]
-    except (NotImplementedError, ValueError, TypeError):
+    except (NotImplementedError, ValueError, TypeError, KeyError):
         return [passage[index:index + 500] for index in range(0, len(passage), 500)]
     if len(offsets) <= max_tokens:
         return [passage]

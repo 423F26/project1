@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import json
 import sqlite3
 from contextlib import nullcontext, redirect_stderr
 from types import SimpleNamespace
@@ -74,6 +75,33 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with self.assertRaises(worker.Unavailable):
                     worker.filing_text(job)
 
+    def test_german_embedded_publication_is_extracted_without_fetching_missing_document_endpoint(self):
+        body = '<p>Gläubiger erhalten "Sicherheit". ÄÖÜß &amp; Rechte. </p>' * 30
+        stream = 'd:' + json.dumps({"publication": {"publicationText": body}})
+        chunks = [stream[:150], stream[150:]]
+        source = ('<p>navigation metadata</p>' + ''.join(
+            '<script>self.__next_f.push(' + json.dumps([1, chunk]) + ')</script>' for chunk in chunks)).encode()
+        job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc"}
+        with patch.object(worker, "fetch_document", return_value=(source, "text/html")) as fetch:
+            original, text, urls = worker.filing_text(job)
+        fetch.assert_called_once_with(job)
+        self.assertEqual(original, source)
+        self.assertEqual(urls, [job["filing_url"]])
+        self.assertIn('Gläubiger erhalten "Sicherheit". ÄÖÜß & Rechte.', text)
+        self.assertNotIn("navigation", text)
+
+    def test_short_embedded_notice_reports_insufficient_text_instead_of_download_failure(self):
+        stream = json.dumps({"publicationText": "Mitteilung " * 86})
+        source = ('<script>self.__next_f.push(' + json.dumps([1, stream]) + ')</script>').encode()
+        job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc"}
+        with patch.object(worker, "fetch_document", return_value=(source, "text/html")) as fetch:
+            with self.assertRaisesRegex(worker.Unavailable, "too little readable text"):
+                worker.filing_text(job)
+        fetch.assert_called_once_with(job)
+        for source in [b'<p>listing metadata</p>', b'<script>self.__next_f.push(invalid)</script>',
+                       b'<script>self.__next_f.push([1, "\\\"publicationText\\\":\\\"\\\\xinvalid\\\""])</script>']:
+            self.assertIsNone(worker.german_publication_text(source))
+
     def test_german_content_fetch_is_limited_to_the_selected_publication_payload(self):
         job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc"}
         endpoint = worker.german_content_url(job)
@@ -92,6 +120,15 @@ class AnalysisWorkerTests(unittest.TestCase):
     def test_passages_are_split_without_losing_source_characters(self):
         text = "abcdefghij"
         chunks = worker.chunk_text(TinyTokenizer(), text, max_tokens=4)
+        self.assertEqual("".join(chunks), text)
+
+    def test_translation_tokenizer_without_offsets_uses_bounded_chunks_without_losing_text(self):
+        def tokenizer(text, **_kwargs):
+            return {"input_ids": list(range(len(text)))}
+        text = "Der Umsatz ist gestiegen. ÄÖÜß\n" * 70
+        chunks = worker.chunk_text(tokenizer, text, max_tokens=448)
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(0 < len(chunk) <= 500 for chunk in chunks))
         self.assertEqual("".join(chunks), text)
 
     def test_finbert_label_mapping_returns_all_three_probabilities(self):
