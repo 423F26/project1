@@ -1,12 +1,13 @@
 'use strict';
 
-const { readFileSync, mkdirSync } = require('node:fs');
-const { join } = require('node:path');
-const { createHash } = require('node:crypto');
+const { readFileSync, mkdirSync, rmSync } = require('node:fs');
+const { open } = require('node:fs/promises');
+const { join, extname } = require('node:path');
+const { createHash, randomUUID } = require('node:crypto');
 const https = require('node:https');
 const { openStore, startCollector } = require('./rss');
 const { SearchError, searchUs, searchGermany, validateSearch } = require('./company-search');
-const { MAX_FILINGS, openAnalysisStore } = require('./analysis-store');
+const { MAX_FILINGS, MAX_UPLOAD, MAX_STORAGE, openAnalysisStore } = require('./analysis-store');
 
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -21,6 +22,7 @@ function hosts(value) {
 }
 
 function reply(response, status, body = '', extraHeaders = {}) {
+  clearTimeout(response.requestDeadline);
   response.writeHead(status, { ...headers, ...extraHeaders, 'content-length': Buffer.byteLength(body) });
   response.end(body);
 }
@@ -95,7 +97,9 @@ function createServer(options) {
   if (scripts.length !== 1) throw new Error('HTML must contain exactly one inline script');
   const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
   const attempts = new Map();
+  let uploadingBytes = 0;
   const server = https.createServer({ ...options.tls, maxHeaderSize: 8 * 1024, insecureHTTPParser: false }, async (request, response) => {
+    request.once('close', () => clearTimeout(response.requestDeadline));
     const now = Date.now();
     const client = request.socket.remoteAddress ?? 'unknown';
     const state = attempts.get(client);
@@ -113,13 +117,58 @@ function createServer(options) {
     if (!options.allowedHosts.has(host)) return reply(response, 421, 'Misdirected request.\n');
     const url = new URL(request.url, 'https://localhost');
     const createAnalysis = url.pathname === '/api/analysis-jobs' && request.method === 'POST';
-    if (request.method !== 'GET' && !createAnalysis) return reply(response, 405, 'Method not allowed.\n');
+    const upload = request.method === 'POST' && /^\/api\/analysis-jobs\/([0-9a-f-]{36})\/upload$/i.exec(url.pathname);
+    if (request.method !== 'GET' && !createAnalysis && !upload) return reply(response, 405, 'Method not allowed.\n');
+    if (upload) {
+      if (request.headers.origin && request.headers.origin !== `https://${request.headers.host}` || request.headers['sec-fetch-site'] === 'cross-site') return reply(response, 403, 'Cross-origin request rejected.\n');
+      const size = Number(request.headers['content-length']);
+      if (request.headers['transfer-encoding'] || !Number.isSafeInteger(size) || size < 1 || size > MAX_UPLOAD) return reply(response, 413, 'Choose a document up to 25 MiB.\n');
+      if (!options.analysisStore) return reply(response, 503, 'Analysis is not configured.\n');
+      const original = options.analysisStore.get(upload[1]);
+      if (!original || original.market !== 'DE') return reply(response, 404, 'German publication job not found.\n');
+      if (!['unavailable', 'failed'].includes(original.status)) return reply(response, 409, 'Wait for retrieval to finish before uploading.\n');
+      const filename = url.searchParams.get('filename') ?? '', language = url.searchParams.get('language');
+      const contentType = { '.pdf': 'application/pdf', '.html': 'text/html', '.htm': 'text/html', '.xml': 'application/xml', '.txt': 'text/plain' }[extname(filename).toLowerCase()];
+      if (!filename || filename.length > 120 || /[\u0000-\u001f\u007f/\\]/.test(filename) || !contentType || !['en', 'de'].includes(language)) return reply(response, 400, 'Choose PDF, HTML, XML, or TXT and the document language.\n');
+      if (options.analysisStore.storageBytes() + uploadingBytes + size > MAX_STORAGE) return reply(response, 507, 'Analysis storage is full.\n');
+      clearTimeout(response.requestDeadline);
+      response.requestDeadline = setTimeout(() => request.destroy(), 120_000);
+      response.requestDeadline.unref();
+      uploadingBytes += size;
+      const id = randomUUID(), directory = join(options.analysisDataDir ?? '/analysis', 'uploads'), path = join(directory, `${id}.upload`);
+      let queued = false;
+      try {
+        mkdirSync(directory, { recursive: true });
+        const file = await open(path, 'wx', 0o600), hash = createHash('sha256');
+        let received = 0, signature = Buffer.alloc(0);
+        try {
+          for await (const chunk of request) {
+            received += chunk.length;
+            if (received > size) throw new Error('Upload exceeds its declared size.');
+            if (signature.length < 5) signature = Buffer.concat([signature, chunk]).subarray(0, 5);
+            hash.update(chunk);
+            await file.writeFile(chunk);
+          }
+        } finally { await file.close(); }
+        if (received !== size || contentType === 'application/pdf' && signature.toString('ascii') !== '%PDF-') throw new Error('The uploaded document is incomplete or is not a PDF.');
+        const job = options.analysisStore.enqueueUpload(original.id, { id, filename, contentType, language, sha256: hash.digest('hex'), size });
+        queued = true;
+        return reply(response, 202, JSON.stringify({ jobs: [safeStatus(job)] }), { 'content-type': 'application/json; charset=utf-8' });
+      } catch (error) {
+        return reply(response, 400, error.code ? 'Could not store the uploaded document.\n' : `${error.message}\n`);
+      } finally {
+        uploadingBytes -= size;
+        if (!queued) rmSync(path, { force: true });
+      }
+    }
     if (createAnalysis) {
       if (request.headers['transfer-encoding'] || Number(request.headers['content-length'] ?? 0) > 16 * 1024) return reply(response, 413, 'Request body is too large or unsupported.\n');
       if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) return reply(response, 415, 'Expected a JSON request body.\n');
       if (request.headers.origin && request.headers.origin !== `https://${request.headers.host}`) return reply(response, 403, 'Cross-origin request rejected.\n');
       if (request.headers['sec-fetch-site'] === 'cross-site') return reply(response, 403, 'Cross-origin request rejected.\n');
       if (!options.analysisStore) return reply(response, 503, JSON.stringify({ error: 'Analysis is not configured.' }), { 'content-type': 'application/json; charset=utf-8' });
+      response.requestDeadline = setTimeout(() => request.destroy(), 5_000);
+      response.requestDeadline.unref();
       try {
         const body = await readJsonBody(request);
         const jobs = options.analysisStore.enqueue(body?.filings).map(safeStatus);
@@ -218,7 +267,7 @@ function createServer(options) {
     });
   });
 
-  Object.assign(server, { headersTimeout: 5_000, requestTimeout: 5_000, keepAliveTimeout: 2_000, maxRequestsPerSocket: 50, maxHeadersCount: 32 });
+  Object.assign(server, { headersTimeout: 5_000, requestTimeout: 120_000, keepAliveTimeout: 2_000, maxRequestsPerSocket: 50, maxHeadersCount: 32 });
   server.on('clientError', (_error, socket) => socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n'));
   return server;
 }

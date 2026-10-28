@@ -23,6 +23,21 @@ Install the local worker dependencies with `python -m pip install -r requirement
 
 The backend collects eight feeds at startup and hourly, independently of visits. Failed sources keep saved entries. An empty database or unmatched filter shows an empty message. Hourly polling can miss entries removed by publishers between checks. **Analyze selected** queues current SEC or German search results; status and individual failure reasons appear in the existing analysis status area. Completed jobs link to a plain-text details page containing the stored result. Full results are also available from `GET /api/analysis-jobs/{jobId}`. For German results, the worker reads embedded publication text when present; otherwise, it retrieves linked same-host documents (up to five), or uses the register viewer’s public content endpoint with the selected publication’s payload when there are no document links. Publications with fewer than 100 readable words remain unavailable, including short register notices. If it cannot retrieve or fully extract the publication, the result is unavailable rather than analyzing the registry listing. After updating the worker, select the unavailable filing and choose **Analyze selected** again to retry it. Inaccessible, login-gated, unsupported, scanned, or unreadable documents also receive an unavailable status. English text is classified by local FinBERT. English publications in the German register bypass translation when the publisher marks the document language as English; other German-market publications are translated locally before classification. Missing language metadata retains translation. Translation fields and model metadata are null when translation is skipped. Existing completed results remain cached; this change applies to newly analyzed publications. This is sentiment, not the planned [bias analysis](BIAS.md).
 
+## German document fallbacks
+
+Analysis first tries a verified matching issuer report, then the registry. Automatic issuer coverage currently supports Siemens AG annual statements/consolidated annual reports in verified catalogs, with matching legal entity, fiscal period, report type, and language. It does not substitute group reports for subsidiary filings or exemption notices. Other issuers and uncertain matches use registry retrieval or manual upload.
+
+For a German filing marked unavailable or failed:
+
+1. Open its linked register publication, complete any CAPTCHA yourself, and download the original document.
+2. Expand **Upload downloaded original** beneath that filing's error.
+3. Choose PDF, HTML, XML, or TXT (up to 25 MiB), explicitly select the document language, and confirm that the file belongs to this publication.
+4. Choose **Upload and analyze**. A separate job runs through the existing worker; its results link appears in the same status area. The original job is preserved.
+
+Uploads and inference remain local to the deployed app/worker. Uploaded English documents bypass translation. The result records the registry reference, user-supplied filename and SHA-256, or the actual issuer URL for automatic retrieval. All existing readability/word-count/model limits apply; uploads do not add OCR. Staged uploads count toward the 25 GiB quota and are removed after processing. Upload requests have a two-minute deadline; a full quota rejects new uploads. If upload fails, the chosen file/language are retained in the current page so it can be retried.
+
+Rebuild both app and worker after deploying this change. The existing shared analysis volume and initialization service are reused; the new metadata table is created automatically without changing existing jobs.
+
 ## Deploy with Docker Compose
 
 1. Install Docker with Compose. Copy `.env.example` to `.env` and set `ALLOWED_HOSTS=esof423.csit.help` for the documented public hostname. Use the actual hostname if deploying elsewhere; comma-separated hostnames are allowed, without schemes or ports.

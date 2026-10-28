@@ -6,6 +6,7 @@ const { readFileSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } = require(
 const { join } = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const { Readable } = require('node:stream');
 const { DatabaseSync } = require('node:sqlite');
 const { createServer } = require('../src/server');
 const { normalizeFilings, openAnalysisStore } = require('../src/analysis-store');
@@ -120,6 +121,58 @@ test('rejects malformed, oversized, and missing job requests', async () => {
   } finally { store.close(); }
 });
 
+test('streams manual documents into separate jobs while preserving registry results and rejecting unsafe uploads', async () => {
+  const directory = mkdtempSync('/tmp/analysis-upload-test-');
+  const store = openAnalysisStore(join(directory, 'analysis.sqlite'));
+  const db = new DatabaseSync(join(directory, 'analysis.sqlite'));
+  const server = createServer({ tls: {}, allowedHosts: new Set(['localhost']), rateLimit: 100,
+    html: readFileSync(require.resolve('../public/index.html'), 'utf8'), analysisStore: store, analysisDataDir: directory });
+  const original = store.enqueue([german])[0];
+  db.prepare("UPDATE analysis_jobs SET status='unavailable', error='CAPTCHA required' WHERE id=?").run(original.id);
+  const upload = (overrides = {}) => new Promise(resolve => {
+    const body = Buffer.from('financial statement '.repeat(100));
+    const request = Readable.from([body.subarray(0, 7), body.subarray(7)]);
+    Object.assign(request, { method: 'POST', url: `/api/analysis-jobs/${original.id}/upload?filename=report.txt&language=en`,
+      headers: { host: 'localhost', origin: 'https://localhost', 'content-length': String(body.length), 'content-type': 'application/octet-stream', ...overrides.headers },
+      socket: { remoteAddress: '127.0.0.1' } });
+    if (overrides.url) request.url = overrides.url;
+    server.emit('request', request, { writeHead(status) { this.status = status; }, end(body) { this.body = body; resolve(this); } });
+  });
+  try {
+    const created = await upload();
+    assert.equal(created.status, 202);
+    const replacement = JSON.parse(created.body).jobs[0];
+    assert.notEqual(replacement.id, original.id);
+    assert.equal(replacement.status, 'queued');
+    assert.equal(store.get(original.id).status, 'unavailable');
+    const saved = readFileSync(join(directory, 'uploads', `${replacement.id}.upload`));
+    assert.equal(saved.toString(), 'financial statement '.repeat(100));
+    const metadata = db.prepare('SELECT * FROM analysis_uploads WHERE job_id=?').get(replacement.id);
+    assert.equal(metadata.language, 'en');
+    assert.equal(metadata.filename, 'report.txt');
+    assert.equal(metadata.sha256, require('node:crypto').createHash('sha256').update(saved).digest('hex'));
+    assert.equal(store.storageBytes(), saved.length);
+    for (const [overrides, status] of [
+      [{ headers: { origin: 'https://attacker.example' } }, 403],
+      [{ headers: { 'sec-fetch-site': 'cross-site' } }, 403],
+      [{ headers: { 'content-length': String(26 * 1024 * 1024) } }, 413],
+      [{ headers: { 'transfer-encoding': 'chunked' } }, 413],
+      [{ url: `/api/analysis-jobs/${original.id}/upload?filename=..%2Fsecret.pdf&language=en` }, 400],
+      [{ url: `/api/analysis-jobs/${original.id}/upload?filename=report.exe&language=en` }, 400],
+      [{ url: `/api/analysis-jobs/${original.id}/upload?filename=report.pdf&language=en` }, 400],
+      [{ url: `/api/analysis-jobs/${original.id}/upload?filename=report.txt&language=fr` }, 400],
+      [{ headers: { 'content-length': '9999' } }, 400]
+    ]) assert.equal((await upload(overrides)).status, status);
+    const { readdirSync } = require('node:fs');
+    assert.deepEqual(readdirSync(join(directory, 'uploads')), [`${replacement.id}.upload`]);
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM analysis_jobs').get().count, 2);
+    db.prepare("UPDATE analysis_jobs SET status='classifying' WHERE id=?").run(original.id);
+    assert.equal((await upload()).status, 409);
+    db.prepare("UPDATE analysis_jobs SET status='unavailable', artifact_bytes=? WHERE id=?").run(25 * 1024 ** 3, original.id);
+    assert.equal((await upload()).status, 507);
+  } finally { db.close(); store.close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
 
 test('completed filings retain accessible result links in both languages', () => {
   const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
@@ -173,4 +226,51 @@ test('unavailable and failed filings show individual reasons as text in both lan
   assert.equal(node.children[1].textContent, `Siemens: Grund: ${error}`);
   assert.equal(node.children[3].textContent, 'Other filing: Grund: Local analysis failed.');
   assert.equal(node.children[5].href, '/analysis/123?lang=de');
+});
+
+test('upload fallback preserves file and language across page-language changes and polls the replacement job', async () => {
+  const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
+  const code = html.slice(html.indexOf('    function renderAnalysisStatus('), html.indexOf('    async function pollAnalysis('));
+  const nodes = [];
+  const createElement = tag => {
+    const node = { tag, children: [], events: {}, dataset: {}, append(...children) { this.children.push(...children); },
+      setAttribute() {}, addEventListener(name, listener) { this.events[name] = listener; } };
+    nodes.push(node); return node;
+  };
+  const status = createElement('div');
+  const footer = { dataset: { analysisKey: 'company' }, querySelector: () => status };
+  const copies = { analysisUnavailable: n => `Unavailable ${n}`, analysisQueued: n => `Queued ${n}`, analysisRunning: n => `Running ${n}` };
+  let posted, polled = false;
+  const context = { analysisStatusByGroup: new Map(), analysisUploadFiles: new Map(), activeAnalysisRuns: new Map(),
+    language: 'en', searchCopy: { en: copies, de: copies }, URLSearchParams,
+    companyResultsContent: { querySelectorAll: () => [footer] }, document: { createElement }, syncSelectionControls() {}, pollAnalysis() { polled = true; },
+    async fetch(url, options) { posted = { url, options }; return { ok: true, text: async () => JSON.stringify({ jobs: [{ id: 'uploaded', title: 'Statement', market: 'DE', status: 'queued' }] }) }; }
+  };
+  vm.createContext(context); vm.runInContext(code, context);
+  context.applyAnalysisJobs('company', [{ id: 'original', title: 'Statement', market: 'DE', status: 'unavailable', error: 'CAPTCHA required' },
+    { id: 'complete', title: 'Other report', status: 'complete' }]);
+  const latest = predicate => nodes.findLast(predicate);
+  assert.equal(latest(node => node.tag === 'summary').textContent, 'Upload downloaded original');
+  const file = { name: 'original.pdf', size: 1024 };
+  const input = latest(node => node.type === 'file'); input.files = [file]; input.events.change();
+  const confirm = latest(node => node.type === 'checkbox'); confirm.checked = true; confirm.events.change();
+  const language = latest(node => node.tag === 'select'); language.value = 'en'; language.events.change();
+  context.language = 'de'; context.renderAnalysisStatus('company', status);
+  assert.equal(latest(node => node.tag === 'summary').textContent, 'Heruntergeladenes Original hochladen');
+  assert.equal(latest(node => node.tag === 'select').value, 'en');
+  assert.equal(latest(node => node.type === 'checkbox').checked, true);
+  const button = latest(node => node.tag === 'button'); assert.equal(button.disabled, false);
+  const success = context.fetch;
+  context.fetch = async () => ({ ok: false, text: async () => 'Upload interrupted' });
+  await button.events.click();
+  assert.equal(context.analysisUploadFiles.get('original').file, file);
+  assert.equal(latest(node => node.tag === 'button').disabled, false);
+  assert.ok(nodes.some(node => node.textContent === 'Upload interrupted'));
+  context.fetch = success;
+  await latest(node => node.tag === 'button').events.click();
+  assert.match(posted.url, /original\/upload\?filename=original.pdf&language=en/);
+  assert.equal(posted.options.body, file);
+  assert.deepEqual([...context.activeAnalysisRuns.get('company')], ['uploaded', 'complete']);
+  assert.equal(polled, true);
+  assert.equal(context.analysisUploadFiles.has('original'), false);
 });

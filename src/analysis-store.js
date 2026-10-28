@@ -10,6 +10,8 @@ const CIK = /^\d{10}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_FILINGS = 40;
 const MAX_TITLE = 500;
+const MAX_UPLOAD = 25 * 1024 * 1024;
+const MAX_STORAGE = 25 * 1024 ** 3;
 
 function checkedUrl(value, market, cik = '', accession = '') {
   if (typeof value !== 'string' || value.length > 4096) throw new Error('Invalid filing URL.');
@@ -68,8 +70,29 @@ function openAnalysisStore(path) {
     },
     get(id) {
       if (!UUID.test(id)) return undefined;
-      return db.prepare(`SELECT id, market, title, status, error, result_path, created_at, updated_at, completed_at
+      return db.prepare(`SELECT id, market, title, filing_url, status, error, result_path, created_at, updated_at, completed_at
         FROM analysis_jobs WHERE id=?`).get(id);
+    },
+    storageBytes() {
+      return db.prepare('SELECT COALESCE(SUM(artifact_bytes),0) AS bytes FROM analysis_jobs').get().bytes;
+    },
+    enqueueUpload(originalId, { id, filename, contentType, language, sha256, size }) {
+      const original = this.get(originalId);
+      if (!original || original.market !== 'DE' || !['unavailable', 'failed'].includes(original.status)) throw new Error('Upload requires an unavailable German publication.');
+      if (!UUID.test(id) || typeof filename !== 'string' || !filename || filename.length > 120 || /[\u0000-\u001f\u007f/\\]/.test(filename) ||
+          !['application/pdf', 'text/html', 'application/xml', 'text/plain'].includes(contentType) || !['en', 'de'].includes(language) ||
+          !/^[a-f0-9]{64}$/.test(sha256) || !Number.isSafeInteger(size) || size < 1 || size > MAX_UPLOAD) throw new Error('Invalid document upload.');
+      const now = new Date().toISOString();
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (this.storageBytes() + size > MAX_STORAGE) throw new Error('Analysis storage is full.');
+        db.prepare(`INSERT INTO analysis_jobs (id, source_key, market, filing_url, title, status, artifact_bytes, created_at, updated_at)
+          VALUES (?, ?, 'DE', ?, ?, 'queued', ?, ?, ?)`).run(id, `UPLOAD:${id}`, original.filing_url, original.title, size, now, now);
+        db.prepare('INSERT INTO analysis_uploads (job_id, filename, content_type, language, sha256) VALUES (?, ?, ?, ?, ?)')
+          .run(id, filename, contentType, language, sha256);
+        db.exec('COMMIT');
+        return this.get(id);
+      } catch (error) { db.exec('ROLLBACK'); throw error; }
     },
     getMany(ids) {
       if (!Array.isArray(ids) || ids.length < 1 || ids.length > MAX_FILINGS || ids.some((id) => !UUID.test(id))) throw new Error('Invalid job IDs.');
@@ -82,4 +105,4 @@ function openAnalysisStore(path) {
   };
 }
 
-module.exports = { MAX_FILINGS, checkedUrl, normalizeFilings, openAnalysisStore };
+module.exports = { MAX_FILINGS, MAX_UPLOAD, MAX_STORAGE, checkedUrl, normalizeFilings, openAnalysisStore };

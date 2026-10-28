@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -25,6 +26,7 @@ DATA_DIR = Path(os.environ.get("ANALYSIS_DATA_DIR", "data/analysis"))
 DB_PATH = Path(os.environ.get("ANALYSIS_DB_PATH", str(DATA_DIR / "analysis.sqlite")))
 SOURCE_DIR = DATA_DIR / "documents"
 TEMP_DIR = DATA_DIR / "tmp"
+UPLOAD_DIR = DATA_DIR / "uploads"
 FINBERT_ID = "ProsusAI/finbert"
 TRANSLATION_ID = "Helsinki-NLP/opus-mt-de-en"
 MODEL_CACHE = Path(os.environ.get("MODEL_CACHE", "data/models"))
@@ -127,9 +129,13 @@ def fetch_document(job: sqlite3.Row, target_url: str | None = None) -> tuple[byt
         url = target_url
     headers = {"User-Agent": SEC_AGENT if job["market"] == "US" else "FinancialBiasDetector/0.2.1",
                "Accept": "text/html,application/xhtml+xml,application/pdf,text/plain,application/xml"}
+    return download_document(url, headers)
+
+
+def download_document(url: str, headers: dict[str, str] | None = None) -> tuple[bytes, str]:
     opener = urllib.request.build_opener(SameHostRedirect())
     try:
-        with opener.open(urllib.request.Request(url, headers=headers), timeout=20) as response:
+        with opener.open(urllib.request.Request(url, headers=headers or {"User-Agent": "FinancialBiasDetector/0.2.1"}), timeout=20) as response:
             final = response.geturl()
             if final.split("/", 3)[:3] != url.split("/", 3)[:3]:
                 raise Unavailable("The filing redirected outside its publisher host.")
@@ -225,7 +231,17 @@ def filing_text(job: sqlite3.Row) -> tuple[bytes, str, list[str]]:
     if job["market"] != "DE" or content_type not in {"text/html", "application/xhtml+xml"}:
         return source, extract_document(source, content_type), [job["filing_url"]]
 
-    embedded = german_publication(source).get("publicationText")
+    publication = german_publication(source)
+    try:
+        issuer = issuer_report(publication)
+    except Unavailable:
+        issuer = None
+    if issuer:
+        data, text, document_url = issuer
+        if len(source) + len(data) > MAX_DOWNLOAD:
+            raise Unavailable("The filing exceeds the 25 MiB download limit.")
+        return source + b"\n\n--- issuer document ---\n\n" + data, text, [document_url]
+    embedded = publication.get("publicationText")
     if isinstance(embedded, str) and embedded:
         return source, extract_document(embedded.encode("utf-8"), "text/html"), [job["filing_url"]]
 
@@ -264,6 +280,52 @@ def filing_text(job: sqlite3.Row) -> tuple[bytes, str, list[str]]:
     if len(text.split()) < 100:
         raise Unavailable("The German filing documents contain too little readable text for a complete review.")
     return b"\n\n--- linked filing document ---\n\n".join(sources), text, urls
+
+
+def issuer_report(publication: dict[str, Any]) -> tuple[bytes, str, str] | None:
+    # shortcut: verified Siemens annual reports only; add issuer adapters after verifying their catalogs and entity/report identity.
+    company, title = publication.get("companyNameAtTimeOfPublication"), publication.get("title")
+    if not isinstance(company, str) or not isinstance(title, str) or company.casefold() not in {"siemens aktiengesellschaft", "siemens ag"}:
+        return None
+    language = publication.get("language")
+    title = title.casefold()
+    standalone, consolidated = "jahresabschluss" in title, "konzernabschluss" in title
+    dates = re.findall(r"\b(\d{2})\.(\d{2})\.(\d{4})\b", title)
+    if language not in ("en", "de") or standalone == consolidated or len(dates) != 2:
+        return None
+    year = int(dates[1][2])
+    if dates != [("01", "10", str(year - 1)), ("30", "09", str(year))]:
+        return None
+    locale = "de-de" if language == "de" else "en-us"
+    catalog = f"https://www.siemens.com/{locale}/company/investor-relations/annual-reports/"
+    page, kind = download_document(catalog)
+    if kind not in {"text/html", "application/xhtml+xml"}:
+        return None
+    links = DocumentLinks()
+    links.feed(page.decode("utf-8", errors="replace"))
+    if standalone:
+        pattern = rf"siemens-sag[-_]?{year}-{'d' if language == 'de' else 'e'}\.pdf"
+    elif language == "de":
+        pattern = rf"(?:siemens[-_](?:gb|jb|jahresbericht)[-_]?{year}|siemens-geschaftsbericht-{year}|siemens-annual-report-{year}-de|siemens_bericht_gj{year})\.pdf"
+    else:
+        pattern = rf"(?:siemens-annual-report-{year}|siemens-ar[-_]?{year}|siemens_report_fy{year}(?:__1_)?)\.pdf"
+    candidates = set()
+    for link in links.links:
+        url = urljoin(catalog, link)
+        parsed = urlsplit(url)
+        trusted = (parsed.netloc == "assets.ctfassets.net" and parsed.path.startswith("/17si5cpawjzf/")) or (parsed.netloc == "assets.new.siemens.com" and parsed.path.startswith("/siemens/assets/api/uuid:"))
+        if parsed.scheme == "https" and trusted and not parsed.query and not parsed.fragment and re.fullmatch(pattern, parsed.path.rsplit("/", 1)[-1], re.I):
+            candidates.add(url)
+    if len(candidates) != 1:
+        return None
+    url = candidates.pop()
+    data, kind = download_document(url)
+    if not data.startswith(b"%PDF-"):
+        return None
+    text = extract_document(data, kind)
+    if not re.search(r"\bSiemens\s+(?:AG|Aktiengesellschaft)\b", text, re.I) or not re.search(rf"\b{year}\b", text):
+        return None
+    return data, text, url
 
 
 def paragraphs(text: str) -> list[str]:
@@ -320,16 +382,29 @@ def set_status(db: sqlite3.Connection, job_id: str, status: str, *, error: str =
 def prune_for(db: sqlite3.Connection, bytes_needed: int, protect_id: str) -> bool:
     if bytes_needed > MAX_STORAGE:
         return False
-    total = db.execute("SELECT COALESCE(SUM(artifact_bytes),0) FROM analysis_jobs WHERE status='complete'").fetchone()[0]
-    while total + bytes_needed > MAX_STORAGE:
-        victim = db.execute("SELECT id, artifact_bytes FROM analysis_jobs WHERE status='complete' AND id<>? ORDER BY completed_at, id LIMIT 1", (protect_id,)).fetchone()
-        if not victim:
-            return False
-        (SOURCE_DIR / f"{victim['id']}.source").unlink(missing_ok=True)
-        (SOURCE_DIR / f"{victim['id']}.result.json").unlink(missing_ok=True)
-        db.execute("DELETE FROM analysis_jobs WHERE id=?", (victim["id"],))
+    victims = []
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        total = db.execute("SELECT COALESCE(SUM(artifact_bytes),0) FROM analysis_jobs WHERE id<>?", (protect_id,)).fetchone()[0]
+        while total + bytes_needed > MAX_STORAGE:
+            victim = db.execute("SELECT id, artifact_bytes FROM analysis_jobs WHERE status='complete' AND id<>? ORDER BY completed_at, id LIMIT 1", (protect_id,)).fetchone()
+            if not victim:
+                db.rollback()
+                return False
+            victims.append(victim["id"])
+            db.execute("DELETE FROM analysis_uploads WHERE job_id=?", (victim["id"],))
+            db.execute("DELETE FROM analysis_jobs WHERE id=?", (victim["id"],))
+            total -= victim["artifact_bytes"]
+        # Reserve output bytes before publishing so concurrent web uploads see them.
+        db.execute("UPDATE analysis_jobs SET artifact_bytes=? WHERE id=?", (bytes_needed, protect_id))
         db.commit()
-        total -= victim["artifact_bytes"]
+    except Exception:
+        db.rollback()
+        raise
+    for job_id in victims:
+        (SOURCE_DIR / f"{job_id}.source").unlink(missing_ok=True)
+        (SOURCE_DIR / f"{job_id}.result.json").unlink(missing_ok=True)
+        (UPLOAD_DIR / f"{job_id}.upload").unlink(missing_ok=True)
     return True
 
 
@@ -433,8 +508,19 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
     source_path = SOURCE_DIR / f"{job_id}.source"
     result_path = SOURCE_DIR / f"{job_id}.result.json"
     try:
-        original, text, document_urls = filing_text(job)
-        needs_translation = job["market"] == "DE" and german_publication(original).get("language") != "en"
+        upload = db.execute("SELECT * FROM analysis_uploads WHERE job_id=?", (job_id,)).fetchone()
+        if upload:
+            path = UPLOAD_DIR / f"{job_id}.upload"
+            if path.stat().st_size > MAX_DOWNLOAD:
+                raise Unavailable("The uploaded document exceeds the 25 MiB limit.")
+            original = path.read_bytes()
+            if hashlib.sha256(original).hexdigest() != upload["sha256"]:
+                raise Unavailable("The uploaded document failed its integrity check.")
+            text, document_urls = extract_document(original, upload["content_type"]), []
+            needs_translation = upload["language"] != "en"
+        else:
+            original, text, document_urls = filing_text(job)
+            needs_translation = job["market"] == "DE" and german_publication(original).get("language") != "en"
         source_tmp.write_bytes(original)
         db.execute("UPDATE analysis_jobs SET status='extracting', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
         db.commit()
@@ -465,7 +551,9 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
                                     "sentiment": classify(torch, fin_tokenizer, classifier, sentiment_text)})
         payload = {
             "market": job["market"], "title": job["title"],
-            "source": {"url": job["filing_url"], "documents": document_urls, "cik": job["cik"], "accession": job["accession"], "formType": job["form_type"]},
+            "source": {"url": job["filing_url"], "documents": document_urls, "cik": job["cik"], "accession": job["accession"], "formType": job["form_type"],
+                       "retrieval": "manual_upload" if upload else "issuer" if any(urlsplit(url).hostname != urlsplit(job["filing_url"]).hostname for url in document_urls) else "registry" if job["market"] == "DE" else "publisher",
+                       "upload": {"filename": upload["filename"], "sha256": upload["sha256"], "language": upload["language"], "user_supplied": True} if upload else None},
             "model": FINBERT_ID,
             "model_revision": model_revision(classifier, FINBERT_ID), "translation_model": TRANSLATION_ID if needs_translation else None,
             "translation_revision": model_revision(models[3], TRANSLATION_ID) if needs_translation else None,
@@ -479,6 +567,10 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
         os.replace(source_tmp, source_path)
         os.replace(result_tmp, result_path)
         set_status(db, job_id, "complete", result_path=result_path.name, artifact_bytes=artifact_bytes)
+        if upload:
+            (UPLOAD_DIR / f"{job_id}.upload").unlink(missing_ok=True)
+            db.execute("DELETE FROM analysis_uploads WHERE job_id=?", (job_id,))
+            db.commit()
     finally:
         source_tmp.unlink(missing_ok=True)
         result_tmp.unlink(missing_ok=True)
@@ -493,6 +585,11 @@ def run() -> None:
     recover_interrupted(db)
     SOURCE_DIR.mkdir(parents=True, exist_ok=True)
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    uploaded = {row[0] for row in db.execute("SELECT job_id FROM analysis_uploads")}
+    for path in UPLOAD_DIR.glob("*.upload"):
+        if path.stem not in uploaded and path.stat().st_mtime < time.time() - 3600:
+            path.unlink(missing_ok=True)
     retained = {row[0] for row in db.execute("SELECT id FROM analysis_jobs WHERE status='complete'").fetchall()}
     for path in SOURCE_DIR.iterdir():
         if path.name.endswith('.source') or path.name.endswith('.result.json'):
@@ -514,14 +611,22 @@ def run() -> None:
         except Unavailable as error:
             (SOURCE_DIR / f"{job['id']}.source").unlink(missing_ok=True)
             (SOURCE_DIR / f"{job['id']}.result.json").unlink(missing_ok=True)
+            discard_upload(db, job["id"])
             set_status(db, job["id"], "unavailable", error=str(error)[:300])
         except Exception as error:
             (SOURCE_DIR / f"{job['id']}.source").unlink(missing_ok=True)
             (SOURCE_DIR / f"{job['id']}.result.json").unlink(missing_ok=True)
+            discard_upload(db, job["id"])
             stage = db.execute("SELECT status FROM analysis_jobs WHERE id=?", (job["id"],)).fetchone()[0]
             set_status(db, job["id"], "failed", error=f"Local analysis failed during {stage} ({type(error).__name__}). See worker logs for details.")
             print(f"Analysis job {job['id']} failed during {stage}.", file=sys.stderr, flush=True)
             traceback.print_exc()
+
+
+def discard_upload(db: sqlite3.Connection, job_id: str) -> None:
+    (UPLOAD_DIR / f"{job_id}.upload").unlink(missing_ok=True)
+    db.execute("DELETE FROM analysis_uploads WHERE job_id=?", (job_id,))
+    db.commit()
 
 
 if __name__ == "__main__":

@@ -109,6 +109,13 @@
       .analysis-footer { margin-top: 12px; padding: 16px 0 24px; border-top: 1px solid var(--separator); }
     .analysis-status { min-width: 0; margin-right: auto; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
     .analysis-status a { color: var(--accent); overflow-wrap: anywhere; }
+    .document-upload { margin-top: 12px; font-size: 14px; }
+    .document-upload summary { min-height: 44px; cursor: pointer; text-decoration: underline; }
+    .document-upload label { display: block; margin-top: 8px; }
+    .document-upload input[type="file"] { max-width: 100%; min-height: 44px; }
+    .document-upload select { min-height: 44px; font: inherit; }
+    .document-upload button { margin-top: 8px; }
+    .document-upload button:disabled { opacity: .55; cursor: not-allowed; }
     .company-analyze-button { border-color: var(--accent); background: var(--accent); color: #000; font-weight: 500; }
     .company-analyze-button:hover:not(:disabled) { background: #c6e0fa; }
     .company-analyze-button:disabled { opacity: .55; cursor: default; }
@@ -206,6 +213,7 @@
     let lastSearchResult = null;
     const selectedFilingKeys = new Set();
     const analysisStatusByGroup = new Map();
+    const analysisUploadFiles = new Map();
     const activeAnalysisRuns = new Map();
     let analysisPolling = false;
     function showLanguage(language) {
@@ -363,6 +371,7 @@
         const reason = document.createElement('span');
         reason.textContent = `${job.title}: ${language === 'de' ? 'Grund' : 'Reason'}: ${job.error}`;
         statusNode.append(document.createElement('br'), reason);
+        if (job.market === 'DE') addDocumentUpload(statusNode, job, groupKey);
       }
       for (const job of state.completed ?? []) {
         const link = document.createElement('a');
@@ -391,7 +400,81 @@
       else if (counts.unavailable) setAnalysisStatus(groupKey, 'analysisUnavailable', counts.unavailable, null, completed, errors);
       else if (counts.complete === count && count) setAnalysisStatus(groupKey, 'analysisComplete', count, null, completed);
       else setAnalysisStatus(groupKey, jobs.some(job => job.status !== 'queued') ? 'analysisRunning' : 'analysisQueued', count);
+      analysisStatusByGroup.get(groupKey).jobs = jobs;
       return jobs.length > 0 && jobs.every(job => terminal.has(job.status));
+    }
+    function addDocumentUpload(parent, job, groupKey) {
+      const de = language === 'de';
+      const saved = analysisUploadFiles.get(job.id) ?? { file: null, language: '', confirmed: false };
+      analysisUploadFiles.set(job.id, saved);
+      const details = document.createElement('details');
+      details.className = 'document-upload';
+      details.open = saved.expanded ?? Boolean(saved.file || saved.error || saved.uploading || saved.language);
+      details.addEventListener('toggle', () => { saved.expanded = details.open; });
+      const summary = document.createElement('summary');
+      summary.textContent = de ? 'Heruntergeladenes Original hochladen' : 'Upload downloaded original';
+      const note = document.createElement('p');
+      note.textContent = de ? 'Laden Sie das Original im Register herunter und lösen Sie dort gegebenenfalls das CAPTCHA. PDF, HTML, XML oder TXT; maximal 25 MiB.' : 'Download the original from the register and complete any CAPTCHA there. PDF, HTML, XML, or TXT; up to 25 MiB.';
+      const fileLabel = document.createElement('label'), file = document.createElement('input');
+      file.type = 'file';
+      file.disabled = Boolean(saved.uploading);
+      file.accept = '.pdf,.html,.htm,.xml,.txt';
+      fileLabel.textContent = de ? 'Dokument: ' : 'Document: ';
+      fileLabel.append(file);
+      const selected = document.createElement('p');
+      selected.textContent = saved.file?.name ?? '';
+      const languageLabel = document.createElement('label'), documentLanguage = document.createElement('select');
+      languageLabel.textContent = de ? 'Dokumentsprache: ' : 'Document language: ';
+      for (const [value, text] of [['', de ? 'Bitte auswählen' : 'Choose language'], ['de', 'Deutsch'], ['en', 'English']]) {
+        const option = document.createElement('option'); option.value = value; option.textContent = text; documentLanguage.append(option);
+      }
+      documentLanguage.value = saved.language;
+      documentLanguage.disabled = Boolean(saved.uploading);
+      languageLabel.append(documentLanguage);
+      const confirmLabel = document.createElement('label'), confirm = document.createElement('input');
+      confirm.type = 'checkbox'; confirm.checked = saved.confirmed;
+      confirm.disabled = Boolean(saved.uploading);
+      confirmLabel.append(confirm, de ? ' Ich bestätige: Dies ist das Originaldokument dieser Veröffentlichung.' : ' I confirm this is the original document for this publication.');
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = de ? 'Hochladen und analysieren' : 'Upload and analyze';
+      const syncUploadButton = () => { button.disabled = !saved.file || !saved.confirmed || !['en', 'de'].includes(saved.language) || Boolean(saved.uploading) || activeAnalysisRuns.has(groupKey); };
+      syncUploadButton();
+      const message = document.createElement('p'); message.setAttribute('role', 'status');
+      message.textContent = saved.uploading ? (de ? 'Dokument wird hochgeladen…' : 'Uploading document…') : saved.error ?? '';
+      file.addEventListener('change', () => {
+        saved.file = file.files[0] ?? null; selected.textContent = saved.file?.name ?? '';
+        syncUploadButton();
+      });
+      documentLanguage.addEventListener('change', () => { saved.language = documentLanguage.value; syncUploadButton(); });
+      confirm.addEventListener('change', () => { saved.confirmed = confirm.checked; syncUploadButton(); });
+      button.addEventListener('click', async () => {
+        if (!saved.file || !saved.confirmed || !['en', 'de'].includes(saved.language) || saved.uploading || activeAnalysisRuns.has(groupKey)) return;
+        if (!saved.file.size || saved.file.size > 25 * 1024 * 1024) { message.textContent = de ? 'Bitte ein Dokument bis 25 MiB auswählen.' : 'Choose a document up to 25 MiB.'; return; }
+        saved.uploading = true; saved.error = '';
+        button.disabled = true; file.disabled = true; confirm.disabled = true; documentLanguage.disabled = true;
+        message.textContent = de ? 'Dokument wird hochgeladen…' : 'Uploading document…';
+        try {
+          const query = new URLSearchParams({ filename: saved.file.name, language: saved.language });
+          const response = await fetch(`/api/analysis-jobs/${job.id}/upload?${query}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: saved.file });
+          const body = await response.text();
+          if (!response.ok) throw new Error(body);
+          const replacement = JSON.parse(body).jobs[0];
+          const jobs = (analysisStatusByGroup.get(groupKey)?.jobs ?? [job]).map(item => item.id === job.id ? replacement : item);
+          activeAnalysisRuns.set(groupKey, jobs.map(item => item.id));
+          analysisUploadFiles.delete(job.id);
+          applyAnalysisJobs(groupKey, jobs); syncSelectionControls(); pollAnalysis();
+        } catch (error) { saved.error = error.message || (de ? 'Hochladen fehlgeschlagen.' : 'Upload failed.'); }
+        finally {
+          saved.uploading = false;
+          const state = analysisStatusByGroup.get(groupKey);
+          if (state) {
+            setAnalysisStatus(groupKey, state.key, state.count, state.message, state.completed, state.errors);
+            analysisStatusByGroup.get(groupKey).jobs = state.jobs;
+          }
+        }
+      });
+      details.append(summary, note, fileLabel, selected, languageLabel, confirmLabel, button, message);
+      parent.append(details);
     }
     async function pollAnalysis() {
       if (analysisPolling) return;
@@ -469,7 +552,7 @@
       const footer = document.createElement('div');
       footer.className = 'analysis-footer';
       footer.dataset.analysisKey = groupKey;
-      const status = document.createElement('p');
+      const status = document.createElement('div');
       status.className = 'analysis-status';
       status.setAttribute('aria-live', 'polite');
       if (analysisStatusByGroup.has(groupKey)) renderAnalysisStatus(groupKey, status);
