@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import sys
 import time
+import traceback
 import urllib.error
 import urllib.request
 import uuid
@@ -412,6 +413,8 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
         results = []
         for index, paragraph in enumerate(raw_passages):
             if job["market"] == "DE" and models[3] is None:
+                db.execute("UPDATE analysis_jobs SET status='translating', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
+                db.commit()
                 models[3], models[4] = ensure_translation(torch, models[3], models[4])
             splitter = models[4] if job["market"] == "DE" else fin_tokenizer
             for part in chunk_text(splitter, paragraph, 448 if job["market"] == "DE" else 480):
@@ -482,11 +485,13 @@ def run() -> None:
             (SOURCE_DIR / f"{job['id']}.source").unlink(missing_ok=True)
             (SOURCE_DIR / f"{job['id']}.result.json").unlink(missing_ok=True)
             set_status(db, job["id"], "unavailable", error=str(error)[:300])
-        except Exception:
+        except Exception as error:
             (SOURCE_DIR / f"{job['id']}.source").unlink(missing_ok=True)
             (SOURCE_DIR / f"{job['id']}.result.json").unlink(missing_ok=True)
-            set_status(db, job["id"], "failed", error="Local analysis failed. Retry the selected filing.")
-            print(f"Analysis job {job['id']} failed.", file=sys.stderr, flush=True)
+            stage = db.execute("SELECT status FROM analysis_jobs WHERE id=?", (job["id"],)).fetchone()[0]
+            set_status(db, job["id"], "failed", error=f"Local analysis failed during {stage} ({type(error).__name__}). See worker logs for details.")
+            print(f"Analysis job {job['id']} failed during {stage}.", file=sys.stderr, flush=True)
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

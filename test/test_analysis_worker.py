@@ -1,6 +1,7 @@
 import importlib.util
+import io
 import sqlite3
-from contextlib import nullcontext
+from contextlib import nullcontext, redirect_stderr
 from types import SimpleNamespace
 import tempfile
 import unittest
@@ -115,6 +116,49 @@ class AnalysisWorkerTests(unittest.TestCase):
         db.execute("INSERT INTO analysis_jobs (id, source_key, market, filing_url, title, status, created_at, updated_at) VALUES ('id', 'key', 'US', 'https://www.sec.gov/x', 'title', 'classifying', '2026-01-01', '2026-01-01')")
         worker.recover_interrupted(db)
         self.assertEqual(db.execute("SELECT status FROM analysis_jobs WHERE id='id'").fetchone()[0], "queued")
+
+    def test_translation_model_loading_is_reported_as_translating(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db = sqlite3.connect(":memory:")
+            db.row_factory = sqlite3.Row
+            db.executescript((MODULE.parent / "analysis-schema.sql").read_text())
+            db.execute("INSERT INTO analysis_jobs (id, source_key, market, filing_url, title, status, created_at, updated_at) VALUES ('id', 'key', 'DE', 'https://www.unternehmensregister.de/de/publication?payload=abc', 'title', 'fetching', '2026-01-01', '2026-01-01')")
+            job = db.execute("SELECT * FROM analysis_jobs").fetchone()
+            with patch.object(worker, "SOURCE_DIR", Path(temp)), patch.object(worker, "TEMP_DIR", Path(temp)), \
+                 patch.object(worker, "filing_text", return_value=(b"source", "financial statement " * 70, [job["filing_url"]])), \
+                 patch.object(worker, "ensure_translation", side_effect=RuntimeError("model loading failed")):
+                with self.assertRaises(RuntimeError):
+                    worker.process(db, job, [None] * 5)
+            self.assertEqual(db.execute("SELECT status FROM analysis_jobs").fetchone()[0], "translating")
+            self.assertEqual(list(Path(temp).iterdir()), [])
+            db.close()
+
+    def test_unexpected_failure_records_stage_and_logs_traceback_without_exposing_details_in_ui(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db = sqlite3.connect(":memory:")
+            db.row_factory = sqlite3.Row
+            db.executescript((MODULE.parent / "analysis-schema.sql").read_text())
+            db.execute("INSERT INTO analysis_jobs (id, source_key, market, filing_url, title, status, created_at, updated_at) VALUES ('id', 'key', 'DE', 'https://www.unternehmensregister.de/de/publication?payload=abc', 'title', 'queued', '2026-01-01', '2026-01-01')")
+            job = db.execute("SELECT * FROM analysis_jobs").fetchone()
+            def fail(*_args):
+                db.execute("UPDATE analysis_jobs SET status='translating' WHERE id='id'")
+                db.commit()
+                raise TypeError("internal model diagnostic")
+            logs = io.StringIO()
+            with patch.dict(worker.sys.modules, {"torch": SimpleNamespace(backends=SimpleNamespace())}), \
+                 patch.object(worker, "open_db", return_value=db), patch.object(worker, "SOURCE_DIR", Path(temp)), \
+                 patch.object(worker, "TEMP_DIR", Path(temp)), patch.object(worker, "load_models", return_value=[None] * 5), \
+                 patch.object(worker, "claim", side_effect=[job, KeyboardInterrupt]), \
+                 patch.object(worker, "process", side_effect=fail), redirect_stderr(logs):
+                with self.assertRaises(KeyboardInterrupt):
+                    worker.run()
+            row = db.execute("SELECT status, error FROM analysis_jobs").fetchone()
+            self.assertEqual(row["status"], "failed")
+            self.assertIn("during translating (TypeError)", row["error"])
+            self.assertNotIn("internal model diagnostic", row["error"])
+            self.assertIn("Traceback", logs.getvalue())
+            self.assertIn("TypeError: internal model diagnostic", logs.getvalue())
+            db.close()
 
     def test_quota_prunes_oldest_completed_jobs_only(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as temp:
