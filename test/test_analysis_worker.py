@@ -91,7 +91,7 @@ class AnalysisWorkerTests(unittest.TestCase):
         self.assertNotIn("navigation", text)
 
     def test_short_embedded_notice_reports_insufficient_text_instead_of_download_failure(self):
-        stream = json.dumps({"publicationText": "Mitteilung " * 86})
+        stream = json.dumps({"publication": {"publicationText": "Mitteilung " * 86}})
         source = ('<script>self.__next_f.push(' + json.dumps([1, stream]) + ')</script>').encode()
         job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc"}
         with patch.object(worker, "fetch_document", return_value=(source, "text/html")) as fetch:
@@ -100,7 +100,7 @@ class AnalysisWorkerTests(unittest.TestCase):
         fetch.assert_called_once_with(job)
         for source in [b'<p>listing metadata</p>', b'<script>self.__next_f.push(invalid)</script>',
                        b'<script>self.__next_f.push([1, "\\\"publicationText\\\":\\\"\\\\xinvalid\\\""])</script>']:
-            self.assertIsNone(worker.german_publication_text(source))
+            self.assertEqual(worker.german_publication(source), {})
 
     def test_german_content_fetch_is_limited_to_the_selected_publication_payload(self):
         job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc"}
@@ -169,6 +169,40 @@ class AnalysisWorkerTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT status FROM analysis_jobs").fetchone()[0], "translating")
             self.assertEqual(list(Path(temp).iterdir()), [])
             db.close()
+
+    def test_english_publications_bypass_translation_and_report_only_models_used_by_this_job(self):
+        passage = ("Revenue increased and operating costs declined. " * 4).strip()
+        for market, language, cached in [("DE", "en", False), ("DE", "en", True), ("DE", "de", False),
+                                          ("DE", None, False), ("US", None, True)]:
+            with self.subTest(market=market, language=language, cached=cached), tempfile.TemporaryDirectory() as temp:
+                db = sqlite3.connect(":memory:")
+                db.row_factory = sqlite3.Row
+                db.executescript((MODULE.parent / "analysis-schema.sql").read_text())
+                db.execute("INSERT INTO analysis_jobs (id, source_key, market, filing_url, title, status, created_at, updated_at) VALUES ('id', 'key', ?, 'https://www.unternehmensregister.de/de/publication?payload=abc', 'title', 'fetching', '2026-01-01', '2026-01-01')", (market,))
+                job = db.execute("SELECT * FROM analysis_jobs").fetchone()
+                stream = json.dumps({"language": "de", "publication": {"language": language, "publicationText": None}})
+                source = ('<script>self.__next_f.push(' + json.dumps([1, stream]) + ')</script>').encode()
+                translator = SimpleNamespace(config=SimpleNamespace(_commit_hash="translation-revision"))
+                classifier = SimpleNamespace(config=SimpleNamespace(_commit_hash="classifier-revision"))
+                models = [None, TinyTokenizer(), classifier, translator if cached else None, TinyTokenizer() if cached else None]
+                with patch.object(worker, "SOURCE_DIR", Path(temp)), patch.object(worker, "TEMP_DIR", Path(temp)), \
+                     patch.object(worker, "filing_text", return_value=(source, passage, [job["filing_url"]])), \
+                     patch.object(worker, "ensure_translation", return_value=(translator, TinyTokenizer())) as load, \
+                     patch.object(worker, "translate_text", return_value="Translated financial statement.") as translate, \
+                     patch.object(worker, "classify", return_value={"label": "neutral"}) as classify:
+                    worker.process(db, job, models)
+                result = json.loads((Path(temp) / "id.result.json").read_text())
+                self.assertEqual(db.execute("SELECT status FROM analysis_jobs").fetchone()[0], "complete")
+                needs_translation = market == "DE" and language != "en"
+                self.assertEqual(load.call_count, int(needs_translation))
+                self.assertEqual(translate.call_count, int(needs_translation))
+                classify.assert_called_once()
+                self.assertEqual(classify.call_args.args[-1], "Translated financial statement." if needs_translation else passage)
+                self.assertEqual(result["passages"][0]["original"], passage)
+                self.assertEqual(result["passages"][0]["translation"], "Translated financial statement." if needs_translation else None)
+                self.assertEqual(result["translation_model"], worker.TRANSLATION_ID if needs_translation else None)
+                self.assertEqual(result["translation_revision"], "translation-revision" if needs_translation else None)
+                db.close()
 
     def test_unexpected_failure_records_stage_and_logs_traceback_without_exposing_details_in_ui(self):
         with tempfile.TemporaryDirectory() as temp:

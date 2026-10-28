@@ -195,7 +195,7 @@ def extract_document(data: bytes, content_type: str, *, require_minimum: bool = 
     return text
 
 
-def german_publication_text(source: bytes) -> str | None:
+def german_publication(source: bytes) -> dict[str, Any]:
     chunks = []
     for script in re.findall(r"<script\b[^>]*>(.*?)</script\s*>", source.decode("utf-8-sig", errors="replace"), re.S | re.I):
         prefix = "self.__next_f.push("
@@ -207,15 +207,17 @@ def german_publication_text(source: bytes) -> str | None:
             continue
         if isinstance(chunk, list) and len(chunk) == 2 and chunk[0] == 1 and isinstance(chunk[1], str):
             chunks.append(chunk[1])
-    # Read only the publication body from the viewer data; never execute page scripts.
-    bodies = re.findall(r'"publicationText"\s*:\s*("(?:[^"\\]|\\.)*")', "".join(chunks))
-    try:
-        texts = {json.loads(body) for body in bodies}
-    except ValueError:
-        return None
-    if len(texts) == 1:
-        return texts.pop() or None
-    return None
+    # Read the selected publication's metadata and body; never execute page scripts.
+    stream = "".join(chunks)
+    publications = []
+    for match in re.finditer(r'"publication"\s*:\s*', stream):
+        try:
+            publication, _ = json.JSONDecoder().raw_decode(stream[match.end():])
+        except ValueError:
+            continue
+        if isinstance(publication, dict):
+            publications.append(publication)
+    return publications[0] if len(publications) == 1 else {}
 
 
 def filing_text(job: sqlite3.Row) -> tuple[bytes, str, list[str]]:
@@ -223,8 +225,8 @@ def filing_text(job: sqlite3.Row) -> tuple[bytes, str, list[str]]:
     if job["market"] != "DE" or content_type not in {"text/html", "application/xhtml+xml"}:
         return source, extract_document(source, content_type), [job["filing_url"]]
 
-    embedded = german_publication_text(source)
-    if embedded:
+    embedded = german_publication(source).get("publicationText")
+    if isinstance(embedded, str) and embedded:
         return source, extract_document(embedded.encode("utf-8"), "text/html"), [job["filing_url"]]
 
     links = DocumentLinks()
@@ -432,6 +434,7 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
     result_path = SOURCE_DIR / f"{job_id}.result.json"
     try:
         original, text, document_urls = filing_text(job)
+        needs_translation = job["market"] == "DE" and german_publication(original).get("language") != "en"
         source_tmp.write_bytes(original)
         db.execute("UPDATE analysis_jobs SET status='extracting', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
         db.commit()
@@ -439,15 +442,15 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
         torch, fin_tokenizer, classifier, _, _ = models
         results = []
         for index, paragraph in enumerate(raw_passages):
-            if job["market"] == "DE" and models[3] is None:
+            if needs_translation and models[3] is None:
                 db.execute("UPDATE analysis_jobs SET status='translating', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
                 db.commit()
                 models[3], models[4] = ensure_translation(torch, models[3], models[4])
-            splitter = models[4] if job["market"] == "DE" else fin_tokenizer
-            for part in chunk_text(splitter, paragraph, 448 if job["market"] == "DE" else 480):
+            splitter = models[4] if needs_translation else fin_tokenizer
+            for part in chunk_text(splitter, paragraph, 448 if needs_translation else 480):
                 translation = None
                 sentiment_text = part
-                if job["market"] == "DE":
+                if needs_translation:
                     db.execute("UPDATE analysis_jobs SET status='translating', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
                     db.commit()
                     translation = translate_text(torch, models[4], models[3], part)
@@ -464,8 +467,8 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
             "market": job["market"], "title": job["title"],
             "source": {"url": job["filing_url"], "documents": document_urls, "cik": job["cik"], "accession": job["accession"], "formType": job["form_type"]},
             "model": FINBERT_ID,
-            "model_revision": model_revision(classifier, FINBERT_ID), "translation_model": TRANSLATION_ID if job["market"] == "DE" else None,
-            "translation_revision": model_revision(models[3], TRANSLATION_ID) if models[3] is not None else None,
+            "model_revision": model_revision(classifier, FINBERT_ID), "translation_model": TRANSLATION_ID if needs_translation else None,
+            "translation_revision": model_revision(models[3], TRANSLATION_ID) if needs_translation else None,
             "sentiment_kind": "financial sentiment; not financial bias", "passages": results,
             "coverage": {"extracted_characters": len(text), "passages": len(results), "complete_extraction": True}
         }
