@@ -108,6 +108,7 @@
     .selection-count { color: var(--muted); font-size: 13px; }
       .analysis-footer { margin-top: 12px; padding: 16px 0 24px; border-top: 1px solid var(--separator); }
     .analysis-status { margin-right: auto; color: var(--muted); font-size: 13px; }
+    .analysis-status a { color: var(--accent); overflow-wrap: anywhere; }
     .company-analyze-button { border-color: var(--accent); background: var(--accent); color: #000; font-weight: 500; }
     .company-analyze-button:hover:not(:disabled) { background: #c6e0fa; }
     .company-analyze-button:disabled { opacity: .55; cursor: default; }
@@ -358,9 +359,17 @@
       const state = analysisStatusByGroup.get(groupKey);
       if (!state) return;
       statusNode.textContent = state.message ?? searchCopy[language][state.key](state.count);
+      for (const job of state.completed ?? []) {
+        const link = document.createElement('a');
+        link.href = `/analysis/${job.id}?lang=${language}`;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = `${language === 'de' ? 'Ergebnisse' : 'Results'}: ${job.title} (${language === 'de' ? 'öffnet in neuem Tab' : 'opens in a new tab'})`;
+        statusNode.append(document.createElement('br'), link);
+      }
     }
-    function setAnalysisStatus(groupKey, key, count, message = null) {
-      analysisStatusByGroup.set(groupKey, { key, count, message });
+    function setAnalysisStatus(groupKey, key, count, message = null, completed = []) {
+      analysisStatusByGroup.set(groupKey, { key, count, message, completed });
       const footer = [...companyResultsContent.querySelectorAll('.analysis-footer')]
         .find(item => item.dataset.analysisKey === groupKey);
       const statusNode = footer?.querySelector('.analysis-status');
@@ -371,9 +380,10 @@
       const counts = { complete: 0, unavailable: 0, failed: 0 };
       for (const job of jobs) if (terminal.has(job.status)) counts[job.status] += 1;
       const count = jobs.length;
-      if (counts.failed) setAnalysisStatus(groupKey, 'analysisFailed', counts.failed);
-      else if (counts.unavailable) setAnalysisStatus(groupKey, 'analysisUnavailable', counts.unavailable);
-      else if (counts.complete === count && count) setAnalysisStatus(groupKey, 'analysisComplete', count);
+      const completed = jobs.filter(job => job.status === 'complete');
+      if (counts.failed) setAnalysisStatus(groupKey, 'analysisFailed', counts.failed, null, completed);
+      else if (counts.unavailable) setAnalysisStatus(groupKey, 'analysisUnavailable', counts.unavailable, null, completed);
+      else if (counts.complete === count && count) setAnalysisStatus(groupKey, 'analysisComplete', count, null, completed);
       else setAnalysisStatus(groupKey, jobs.some(job => job.status !== 'queued') ? 'analysisRunning' : 'analysisQueued', count);
       return jobs.length > 0 && jobs.every(job => terminal.has(job.status));
     }

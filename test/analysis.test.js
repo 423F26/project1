@@ -5,6 +5,7 @@ const { EventEmitter } = require('node:events');
 const { readFileSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 const { DatabaseSync } = require('node:sqlite');
 const { createServer } = require('../src/server');
 const { normalizeFilings, openAnalysisStore } = require('../src/analysis-store');
@@ -86,13 +87,20 @@ test('accepts same-origin job creation, status polling, and completed result ret
     assert.equal(JSON.parse(one.body).result, null);
     const resultDirectory = join(dataDirectory, 'documents');
     mkdirSync(resultDirectory);
-    writeFileSync(join(resultDirectory, `${jobs[0].id}.result.json`), JSON.stringify({ passages: [{ original: 'source', sentiment: { label: 'neutral' } }] }));
+    writeFileSync(join(resultDirectory, `${jobs[0].id}.result.json`), JSON.stringify({ passages: [{ original: '<script>source</script>', sentiment: { label: 'neutral' } }] }));
     const db = new DatabaseSync(join(dataDirectory, 'analysis.sqlite'));
     db.prepare("UPDATE analysis_jobs SET status='complete' WHERE id=?").run(jobs[0].id);
     db.close();
     const final = await apiRequest(server, { method: 'GET', url: `/api/analysis-jobs/${jobs[0].id}` });
     assert.equal(final.status, 200);
     assert.equal(JSON.parse(final.body).result.passages[0].sentiment.label, 'neutral');
+    const page = await apiRequest(server, { method: 'GET', url: `/analysis/${jobs[0].id}?lang=de` });
+    assert.equal(page.status, 200);
+    assert.match(page.body, /Analysedetails/);
+    assert.match(page.body, /&lt;script&gt;source&lt;\/script&gt;/);
+    assert.match(page.body, /neutral/);
+    const pendingPage = await apiRequest(server, { method: 'GET', url: `/analysis/${jobs[1].id}` });
+    assert.match(pendingPage.body, /queued/);
     const crossOrigin = await apiRequest(server, { method: 'POST', url: '/api/analysis-jobs', body: JSON.stringify({ filings: [sec] }),
       headers: { 'content-type': 'application/json', origin: 'https://attacker.example' } });
     assert.equal(crossOrigin.status, 403);
@@ -110,4 +118,28 @@ test('rejects malformed, oversized, and missing job requests', async () => {
     const missing = await apiRequest(server, { method: 'GET', url: '/api/analysis-jobs/00000000-0000-4000-8000-000000000000' });
     assert.equal(missing.status, 404);
   } finally { store.close(); }
+});
+
+
+test('completed filings retain accessible result links in both languages', () => {
+  const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
+  const code = html.slice(html.indexOf('    function renderAnalysisStatus('), html.indexOf('    async function pollAnalysis('));
+  const context = {
+    analysisStatusByGroup: new Map(), language: 'en',
+    searchCopy: { en: { analysisFailed: n => `Failed ${n}` }, de: { analysisFailed: n => `Fehlgeschlagen ${n}` } },
+    companyResultsContent: { querySelectorAll: () => [] },
+    document: { createElement: tag => ({ tag }) }
+  };
+  vm.createContext(context);
+  vm.runInContext(code, context);
+  context.applyAnalysisJobs('company', [{ id: '123', title: 'Filing', status: 'complete' }, { status: 'failed' }]);
+  for (const language of ['en', 'de']) {
+    context.language = language;
+    const node = { children: [], append(...children) { this.children.push(...children); } };
+    context.renderAnalysisStatus('company', node);
+    const link = node.children[1];
+    assert.equal(link.href, `/analysis/123?lang=${language}`);
+    assert.equal(link.rel, 'noopener noreferrer');
+    assert.match(link.textContent, language === 'de' ? /Ergebnisse/ : /Results/);
+  }
 });

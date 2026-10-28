@@ -48,6 +48,12 @@ function safeStatus(job) {
   return { id, market, title, status, error, createdAt: created_at, updatedAt: updated_at, completedAt: completed_at };
 }
 
+function readAnalysisResult(dataDir, id) {
+  const raw = readFileSync(join(dataDir ?? '/analysis', 'documents', `${id}.result.json`));
+  if (raw.length > 16 * 1024 * 1024) throw new Error('Analysis result exceeds the response limit.');
+  return JSON.parse(raw.toString('utf8'));
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 }
@@ -142,12 +148,27 @@ function createServer(options) {
       let result = null;
       if (job.status === 'complete') {
         try {
-          const raw = readFileSync(join(options.analysisDataDir ?? '/analysis', 'documents', `${job.id}.result.json`));
-          if (raw.length > 16 * 1024 * 1024) throw new Error('Analysis result exceeds the response limit.');
-          result = JSON.parse(raw.toString('utf8'));
+          result = readAnalysisResult(options.analysisDataDir, job.id);
         } catch { return reply(response, 500, JSON.stringify({ error: 'Stored analysis result is unavailable.' }), { 'content-type': 'application/json; charset=utf-8' }); }
       }
       return reply(response, 200, JSON.stringify({ job: safeStatus(job), result }), { 'content-type': 'application/json; charset=utf-8' });
+    }
+    const analysisPage = /^\/analysis\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    if (analysisPage) {
+      if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
+      if (!options.analysisStore) return reply(response, 503, 'Analysis is not configured.\n');
+      const job = options.analysisStore.get(analysisPage[1]);
+      if (!job) return reply(response, 404, 'Analysis job not found.\n');
+      const de = url.searchParams.get('lang') === 'de';
+      let output;
+      if (job.status === 'complete') {
+        try {
+          output = JSON.stringify(readAnalysisResult(options.analysisDataDir, job.id), null, 2);
+        } catch { output = de ? 'Gespeichertes Analyseergebnis ist nicht verfügbar.' : 'Stored analysis result is unavailable.'; }
+      } else output = `${job.status}${job.error ? `: ${job.error}` : ''}`;
+      const title = de ? 'Analysedetails' : 'Analysis details';
+      const html = `<!doctype html><html lang="${de ? 'de' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body><h1>${title}</h1><h2>${escapeHtml(job.title)}</h2><pre style="white-space: pre-wrap; overflow-wrap: anywhere">${escapeHtml(output)}</pre></body></html>`;
+      return reply(response, 200, html, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" });
     }
     if (url.pathname === '/api/filings') {
       if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');

@@ -27,7 +27,7 @@ TEMP_DIR = DATA_DIR / "tmp"
 FINBERT_ID = "ProsusAI/finbert"
 TRANSLATION_ID = "Helsinki-NLP/opus-mt-de-en"
 MODEL_CACHE = Path(os.environ.get("MODEL_CACHE", "data/models"))
-SEC_AGENT = os.environ.get("SEC_USER_AGENT", "FinancialBiasDetector/0.2.0 (charles.smith26@student.montana.edu)")
+SEC_AGENT = os.environ.get("SEC_USER_AGENT", "FinancialBiasDetector/0.2.1 (charles.smith26@student.montana.edu)")
 ACCESSION = re.compile(r"^\d{10}-\d{2}-\d{6}$")
 CIK = re.compile(r"^\d{10}$")
 BLOCK_TAGS = {"p", "div", "section", "article", "li", "tr", "td", "th", "h1", "h2", "h3", "h4", "br"}
@@ -116,7 +116,7 @@ def fetch_document(job: sqlite3.Row, target_url: str | None = None) -> tuple[byt
         if job["market"] != "DE" or parsed.scheme != "https" or parsed.netloc != "www.unternehmensregister.de" or parsed.fragment or not re.match(r"^/de/(?:publication|deposits|registerPortalAdvice)(?:/|$)", parsed.path):
             raise Unavailable("The linked document is outside the German register.")
         url = target_url
-    headers = {"User-Agent": SEC_AGENT if job["market"] == "US" else "FinancialBiasDetector/0.2.0",
+    headers = {"User-Agent": SEC_AGENT if job["market"] == "US" else "FinancialBiasDetector/0.2.1",
                "Accept": "text/html,application/xhtml+xml,application/pdf,text/plain,application/xml"}
     opener = urllib.request.build_opener(SameHostRedirect())
     try:

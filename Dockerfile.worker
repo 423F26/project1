@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     ANALYSIS_DB_PATH=/analysis/analysis.sqlite \
     ANALYSIS_DATA_DIR=/analysis \
     MAX_ANALYSIS_STORAGE_BYTES=26843545600 \
-    SEC_USER_AGENT="FinancialBiasDetector/0.2.0 (charles.smith26@student.montana.edu)"
+    SEC_USER_AGENT="FinancialBiasDetector/0.2.1 (charles.smith26@student.montana.edu)"
 
 WORKDIR /app
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.14.1 \

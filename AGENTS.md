@@ -1,6 +1,6 @@
 # Repository guide
 
-Every pass: read [DESIGN.md](docs/agents/DESIGN.md) and [PONYTAIL.md](docs/agents/PONYTAIL.md), then trace the affected flow. Recheck both before committing. Keep responses, plans, and documentation concise; link to canonical guidance instead of repeating it.
+Every agent, on every task: read [DESIGN.md](docs/agents/DESIGN.md) and [PONYTAIL.md](docs/agents/PONYTAIL.md) before starting work, and apply Ponytail throughout unless the user opts out. Trace the affected flow and complete its required checks; recheck both guides before committing. Keep responses, plans, and documentation concise; link to canonical guidance instead of repeating it.
 
 - Keep code in `src/`, UI in `public/`, checks in `test/`, and agent guidance here. Root `AGENTS.md` is only the discovery entry point.
 - Reuse existing capabilities. Add dependencies, routes, state, or external services only with user authorization.

@@ -31,7 +31,7 @@ The server checks requests in this order:
    - `/api/filings` returns rendered feed HTML, items, counts, and pagination data as JSON. Invalid filters return `400`.
    - `/api/company-filings` validates the selected market, company query, filing type, year, and topic. U.S. searches return recent matching SEC filings; German searches filter up to 30 entries from the first page of official Unternehmensregister publications. Invalid input returns `400`; filing-source failures return `502`.
    - `POST /api/analysis-jobs` accepts 1–40 selected SEC or German registry references, validates publisher hosts and paths, and returns deduplicated persistent job IDs. Request bodies are limited to 16 KiB and cross-origin requests are rejected.
-   - `GET /api/analysis-jobs?ids=...` returns up to 40 statuses for polling. `GET /api/analysis-jobs/{jobId}` returns one status and, when complete, its sentiment result and passages.
+   - `GET /analysis/{jobId}` displays a completed job’s stored result as text. `GET /api/analysis-jobs?ids=...` returns up to 40 statuses for polling. `GET /api/analysis-jobs/{jobId}` returns one status and, when complete, its sentiment result and passages.
    - Other paths, or a query on `/`, return `404`. Existing feed and company-search APIs reject request bodies.
 
 The feed API accepts `source` (empty, `SEC`, `BaFin`, or `ECB`), inclusive `from`/`to` dates (`YYYY-MM-DD`), and separate `secOffset`/`otherOffset` cursors (integers from 0 to 1,000,000).
