@@ -15,7 +15,7 @@ import uuid
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 MAX_DOWNLOAD = 25 * 1024 * 1024
 MAX_TEXT_CHARS = 2_000_000
@@ -109,11 +109,19 @@ def safe_url(job: sqlite3.Row) -> str:
     return job["filing_url"]
 
 
+def german_content_url(job: sqlite3.Row) -> str | None:
+    url = urlsplit(safe_url(job))
+    payloads = parse_qs(url.query).get("payload", [])
+    if job["market"] == "DE" and url.path == "/de/publication" and len(payloads) == 1:
+        return "https://www.unternehmensregister.de/api/pub-html?" + urlencode({"payload": payloads[0]})
+    return None
+
+
 def fetch_document(job: sqlite3.Row, target_url: str | None = None) -> tuple[bytes, str]:
     url = safe_url(job)
     if target_url:
         parsed = urlsplit(target_url)
-        if job["market"] != "DE" or parsed.scheme != "https" or parsed.netloc != "www.unternehmensregister.de" or parsed.fragment or not re.match(r"^/de/(?:publication|deposits|registerPortalAdvice)(?:/|$)", parsed.path):
+        if job["market"] != "DE" or parsed.scheme != "https" or parsed.netloc != "www.unternehmensregister.de" or parsed.fragment or not (re.match(r"^/de/(?:publication|deposits|registerPortalAdvice)(?:/|$)", parsed.path) or target_url == german_content_url(job)):
             raise Unavailable("The linked document is outside the German register.")
         url = target_url
     headers = {"User-Agent": SEC_AGENT if job["market"] == "US" else "FinancialBiasDetector/0.2.1",
@@ -205,7 +213,11 @@ def filing_text(job: sqlite3.Row) -> tuple[bytes, str, list[str]]:
             if len(candidates) > 5:
                 raise Unavailable("The German result links to too many filing documents for a complete review.")
     if not candidates:
-        raise Unavailable("The German result page contains no directly retrievable filing document.")
+        # The register's publication viewer loads its document from this public endpoint.
+        content_url = german_content_url(job)
+        if not content_url:
+            raise Unavailable("The German result page contains no directly retrievable filing document.")
+        candidates.append(content_url)
 
     texts, sources, urls = [], [source], []
     total = len(source)

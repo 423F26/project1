@@ -56,6 +56,38 @@ class AnalysisWorkerTests(unittest.TestCase):
             with self.assertRaises(worker.Unavailable):
                 worker.filing_text(job)
 
+    def test_german_publication_uses_viewer_content_endpoint_without_analyzing_page_shell(self):
+        job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc%2B123"}
+        shell = ("<html><p>" + "navigation metadata " * 70 + "</p></html>").encode()
+        document = ("<table><tr><td>" + "Aktien wurden erworben. " * 60 + "</td></tr></table>").encode()
+        endpoint = "https://www.unternehmensregister.de/api/pub-html?payload=abc%2B123"
+        with patch.object(worker, "fetch_document", side_effect=[(shell, "text/html"), (document, "text/plain")]) as fetch:
+            source, text, urls = worker.filing_text(job)
+        fetch.assert_called_with(job, endpoint)
+        self.assertEqual(urls, [endpoint])
+        self.assertIn(document, source)
+        self.assertIn("Aktien wurden erworben.", text)
+        self.assertNotIn("navigation", text)
+        for content in [b"<html><p>Bitte melden Sie sich an</p></html>", b"<html><p>Loading</p></html>"]:
+            with self.subTest(content=content), patch.object(worker, "fetch_document", side_effect=[(shell, "text/html"), (content, "text/html")]):
+                with self.assertRaises(worker.Unavailable):
+                    worker.filing_text(job)
+
+    def test_german_content_fetch_is_limited_to_the_selected_publication_payload(self):
+        job = {"market": "DE", "filing_url": "https://www.unternehmensregister.de/de/publication?payload=abc"}
+        endpoint = worker.german_content_url(job)
+        response = SimpleNamespace(geturl=lambda: endpoint, headers=SimpleNamespace(get_content_type=lambda: "text/plain"),
+                                   read=unittest.mock.Mock(side_effect=[b"document", b""]))
+        opener = SimpleNamespace(open=unittest.mock.Mock(return_value=nullcontext(response)))
+        with patch.object(worker.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(worker.fetch_document(job, endpoint), (b"document", "text/plain"))
+            for target in [endpoint + "other", endpoint.replace("/pub-html", "/other"), endpoint.replace("www.unternehmensregister.de", "example.com")]:
+                with self.subTest(target=target), self.assertRaises(worker.Unavailable):
+                    worker.fetch_document(job, target)
+        self.assertEqual(opener.open.call_count, 1)
+        for path in ["/de/deposits?payload=abc", "/de/publication?payload=abc&payload=def", "/de/publication?payload="]:
+            self.assertIsNone(worker.german_content_url({**job, "filing_url": "https://www.unternehmensregister.de" + path}))
+
     def test_passages_are_split_without_losing_source_characters(self):
         text = "abcdefghij"
         chunks = worker.chunk_text(TinyTokenizer(), text, max_tokens=4)

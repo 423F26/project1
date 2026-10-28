@@ -143,3 +143,34 @@ test('completed filings retain accessible result links in both languages', () =>
     assert.match(link.textContent, language === 'de' ? /Ergebnisse/ : /Results/);
   }
 });
+
+test('unavailable and failed filings show individual reasons as text in both languages', () => {
+  const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
+  const code = html.slice(html.indexOf('    function renderAnalysisStatus('), html.indexOf('    async function pollAnalysis('));
+  const context = {
+    analysisStatusByGroup: new Map(), language: 'en',
+    searchCopy: { en: { analysisFailed: n => `Failed ${n}`, analysisUnavailable: n => `Unavailable ${n}` },
+      de: { analysisFailed: n => `Fehlgeschlagen ${n}`, analysisUnavailable: n => `Nicht verfügbar ${n}` } },
+    companyResultsContent: { querySelectorAll: () => [] },
+    document: { createElement: tag => ({ tag }) }
+  };
+  vm.createContext(context);
+  vm.runInContext(code, context);
+  const error = 'The source requires registration to view the document. <script>unsafe</script>';
+  context.applyAnalysisJobs('company', [{ title: 'Siemens', status: 'unavailable', error }]);
+  for (const language of ['en', 'de']) {
+    context.language = language;
+    const node = { children: [], append(...children) { this.children.push(...children); } };
+    context.renderAnalysisStatus('company', node);
+    assert.match(node.textContent, language === 'de' ? /Nicht verfügbar 1/ : /Unavailable 1/);
+    assert.equal(node.children[1].textContent, `Siemens: ${language === 'de' ? 'Grund' : 'Reason'}: ${error}`);
+    assert.equal(node.children[1].innerHTML, undefined);
+  }
+  context.applyAnalysisJobs('mixed', [{ title: 'Siemens', status: 'unavailable', error },
+    { title: 'Other filing', status: 'failed', error: 'Local analysis failed.' }, { id: '123', title: 'Complete', status: 'complete' }]);
+  const node = { children: [], append(...children) { this.children.push(...children); } };
+  context.renderAnalysisStatus('mixed', node);
+  assert.equal(node.children[1].textContent, `Siemens: Grund: ${error}`);
+  assert.equal(node.children[3].textContent, 'Other filing: Grund: Local analysis failed.');
+  assert.equal(node.children[5].href, '/analysis/123?lang=de');
+});
