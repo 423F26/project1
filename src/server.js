@@ -9,6 +9,7 @@ const { openStore, startCollector, mountainDay } = require('./rss');
 const { SearchError, searchUs, searchGermany, validateSearch } = require('./company-search');
 const { secReference, companyId } = require('./company-store');
 const { MAX_FILINGS, MAX_UPLOAD, MAX_STORAGE, openAnalysisStore } = require('./analysis-store');
+const mountainTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver', timeZoneName: 'short' });
 
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -78,7 +79,7 @@ function renderFeed(items) {
     const label = item.form_type ? `${filingNames[item.form_type] ?? 'SEC filing'} (Form ${item.form_type})` : 'SEC filing';
     const heading = `${company} — ${label}`;
     const headingTag = secReference(item) ? 'h4' : 'h3';
-    const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(mountainDay(item.published_at))} · ${escapeHtml(new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver', timeZoneName: 'short' }).format(new Date(item.published_at)))}</time>` : '';
+    const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(mountainDay(item.published_at))} · ${escapeHtml(mountainTime.format(new Date(item.published_at)))}</time>` : '';
     const accession = /\/(\d{10}-\d{2}-\d{6})-index\.htm(?:[?#].*)?$/i.exec(item.link)?.[1] ?? '';
     const link = `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a>`;
     const excerpt = item.excerpt && !/^\w[\w-]{0,11}$/.test(item.excerpt) ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : '';

@@ -3,9 +3,10 @@
 const { DatabaseSync } = require('node:sqlite');
 const { XMLParser, XMLValidator } = require('fast-xml-parser');
 
+const mountainDate = new Intl.DateTimeFormat('en-CA', { timeZone:'America/Denver',year:'numeric',month:'2-digit',day:'2-digit' });
 const mountainDay = (value) => {
   const d = new Date(value);
-  return value && Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat('en-CA', { timeZone:'America/Denver',year:'numeric',month:'2-digit',day:'2-digit' }).format(d) : '';
+  return value && Number.isFinite(d.getTime()) ? mountainDate.format(d) : '';
 };
 
 const feedCompanyKey = (name, title, link) => {

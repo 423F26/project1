@@ -101,6 +101,23 @@ test('today filter runs before company grouping and pagination and preserves his
     store.close();
   }
 });
+test('filtering historical feed rows keeps timezone-formatting memory bounded', () => {
+  const store = openStore(':memory:');
+  try {
+    store.save(Array.from({ length: 1500 }, (_, i) => ({
+      sourceUrl: 'feed', publisher: 'ECB', itemId: String(i), title: 'Historical filing',
+      link: 'https://example.org/' + i, publishedAt: '2025-01-01T12:00:00.000Z',
+      excerpt: '', fetchedAt: '2025-01-01T12:00:00.000Z'
+    })));
+    const before = process.memoryUsage().rss;
+    const page = store.page({ today: '2026-11-04' });
+    const growth = process.memoryUsage().rss - before;
+    assert.equal(page.items.length, 0);
+    assert.ok(growth < 32 * 1024 ** 2, `Feed query allocated ${growth} bytes`);
+  } finally {
+    store.close();
+  }
+});
 test('catalog deduplicates metadata, keeps identities separate, and only queues explicit same-company selections', () => {
   const s = openAnalysisStore(':memory:');
   try {
