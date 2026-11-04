@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "node --watch src/dev.js",
     "start": "node src/server.js",
-    "test": "node --test && python -B -m unittest discover -s test -p test_*.py"
+    "test": "node --test && node -e \"require('node:child_process').execFileSync(process.platform === 'win32' ? 'python' : 'python3', ['-B', '-m', 'unittest', 'discover', '-s', 'test', '-p', 'test_*.py'], {stdio:'inherit'})\""
   },
   "engines": {
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.11.2"
+    "fast-xml-parser": "^5.11.2",
+    "pdfjs-dist": "5.4.449",
+    "sanitize-html": "2.18.1"
+  },
+  "devDependencies": {
+    "jsdom": "28.0.0"
   }
 }

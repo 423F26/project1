@@ -4,6 +4,7 @@ const { DatabaseSync } = require('node:sqlite');
 const { randomUUID } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
+const { companyStore } = require('./company-store');
 
 const ACCESSION = /^\d{10}-\d{2}-\d{6}$/;
 const CIK = /^\d{10}$/;
@@ -49,7 +50,11 @@ function openAnalysisStore(path) {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;');
   db.exec(readFileSync(join(__dirname, 'analysis-schema.sql'), 'utf8'));
+  if (!db.prepare('PRAGMA table_info(company_filings)').all().some(c=>c.name==='source_description')) db.exec("ALTER TABLE company_filings ADD COLUMN source_description TEXT NOT NULL DEFAULT ''");
+  const catalog = companyStore(db, normalizeFilings);
+  catalog.backfill();
   return {
+    catalog,
     enqueue(filings) {
       const normalized = normalizeFilings(filings);
       db.exec('BEGIN IMMEDIATE');
@@ -64,6 +69,7 @@ function openAnalysisStore(path) {
         const timestamp = new Date().toISOString();
         for (const item of normalized) insert.run(item.id, item.sourceKey, item.market, item.url, item.cik, item.accession, item.title, item.formType, timestamp, timestamp);
         const jobs = normalized.map((item) => find.get(item.sourceKey));
+        catalog.backfill();
         db.exec('COMMIT');
         return jobs;
       } catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -74,7 +80,7 @@ function openAnalysisStore(path) {
         FROM analysis_jobs WHERE id=?`).get(id);
     },
     storageBytes() {
-      return db.prepare('SELECT COALESCE(SUM(artifact_bytes),0) AS bytes FROM analysis_jobs').get().bytes;
+      return db.prepare('SELECT (SELECT COALESCE(SUM(artifact_bytes),0) FROM analysis_jobs)+(SELECT COALESCE(SUM(artifact_bytes),0) FROM library_documents)+(SELECT COALESCE(SUM(artifact_bytes),0) FROM report_runs)+(SELECT COALESCE(SUM(length(CAST(payload AS BLOB))),0) FROM company_assessments) AS bytes').get().bytes;
     },
     enqueueUpload(originalId, { id, filename, contentType, language, sha256, size }) {
       const original = this.get(originalId);

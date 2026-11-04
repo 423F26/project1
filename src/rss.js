@@ -3,6 +3,16 @@
 const { DatabaseSync } = require('node:sqlite');
 const { XMLParser, XMLValidator } = require('fast-xml-parser');
 
+const mountainDay = (value) => {
+  const d = new Date(value);
+  return value && Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat('en-CA', { timeZone:'America/Denver',year:'numeric',month:'2-digit',day:'2-digit' }).format(d) : '';
+};
+
+const feedCompanyKey = (name, title, link) => {
+  const match = /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/(\d{1,10})\//.exec(link || '');
+  return match ? match[1].padStart(10,'0') : (name || title).trim().toLowerCase();
+};
+
 const HOUR = 60 * 60 * 1000;
 const sources = [
   ['ECB', 'https://www.ecb.europa.eu/rss/press.html'],
@@ -82,6 +92,9 @@ function parseFeed(xml, sourceUrl, publisher, fetchedAt) {
 
 function openStore(path) {
   const db = new DatabaseSync(path);
+  db.function('mountain_day', mountainDay);
+  db.function('company_key', feedCompanyKey);
+  let archive = null;
   db.exec(`CREATE TABLE IF NOT EXISTS feed_items (
     source_url TEXT NOT NULL,
     publisher TEXT NOT NULL,
@@ -116,7 +129,8 @@ function openStore(path) {
     ) WHERE rank = 1 ORDER BY sort_date DESC, link ASC LIMIT ? OFFSET ?`);
   const filterSql = `(? = '' OR publisher = ?)
       AND (? = '' OR date(COALESCE(published_at, fetched_at)) >= date(?))
-      AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))`;
+      AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))
+      AND (? = '' OR mountain_day(published_at) = ?)`;
   const rankedSql = `WITH ranked AS (
     SELECT publisher, title, link, published_at, excerpt, company_name, form_type,
       COALESCE(published_at, fetched_at) AS sort_date,
@@ -124,7 +138,7 @@ function openStore(path) {
     FROM feed_items WHERE ${filterSql}
   )`;
   const secGroups = db.prepare(`${rankedSql}
-    SELECT lower(trim(COALESCE(NULLIF(company_name, ''), title))) AS company_key,
+    SELECT company_key(company_name,title,link) AS company_key,
       MAX(COALESCE(NULLIF(company_name, ''), title)) AS company_name, MAX(sort_date) AS sort_date
     FROM ranked WHERE rank = 1 AND publisher = 'SEC'
     GROUP BY company_key ORDER BY sort_date DESC, company_key ASC LIMIT ? OFFSET ?`);
@@ -134,7 +148,7 @@ function openStore(path) {
     ORDER BY sort_date DESC, link ASC LIMIT ? OFFSET ?`);
   const secCount = db.prepare(`${rankedSql}
     SELECT COUNT(*) AS count FROM (
-      SELECT lower(trim(COALESCE(NULLIF(company_name, ''), title))) AS company_key
+      SELECT company_key(company_name,title,link) AS company_key
       FROM ranked WHERE rank = 1 AND publisher = 'SEC' GROUP BY company_key
     )`);
   const otherCount = db.prepare(`${rankedSql}
@@ -145,29 +159,34 @@ function openStore(path) {
     return db.prepare(`${rankedSql}
       SELECT publisher, title, link, published_at, excerpt, company_name, form_type, sort_date
       FROM ranked WHERE rank = 1 AND publisher = 'SEC'
-        AND lower(trim(COALESCE(NULLIF(company_name, ''), title))) IN (${placeholders})
+        AND company_key(company_name,title,link) IN (${placeholders})
       ORDER BY sort_date DESC, link ASC`).all(...filters, ...companyKeys);
   };
-  const filterArgs = (source, from, to) => [source, source, from, from, to, to];
+  const filterArgs = (source, from, to, today) => [source, source, from, from, to, to, today, today];
   return {
+    archive(callback) {
+      archive = callback;
+      for (const row of db.prepare("SELECT * FROM feed_items WHERE publisher='SEC'").iterate()) callback([row]);
+    },
     save(items) {
       db.exec('BEGIN');
       try {
         for (const item of items) insert.run(item.sourceUrl, item.publisher, item.itemId, item.title, item.link, item.publishedAt, item.excerpt, item.fetchedAt, item.companyName ?? '', item.formType ?? '');
         db.exec('COMMIT');
       } catch (error) { db.exec('ROLLBACK'); throw error; }
+      if (archive) archive(items.map(i => ({...i,company_name:i.companyName,form_type:i.formType,published_at:i.publishedAt})));
     },
     recent({ limit = 20, offset = 0, source = '', from = '', to = '' } = {}) {
       return recent.all(source, source, from, from, to, to, limit, offset);
     },
-    page({ limit = 20, secOffset = 0, otherOffset = 0, source = '', from = '', to = '' } = {}) {
-      const filters = filterArgs(source, from, to);
+    page({ limit = 20, secOffset = 0, otherOffset = 0, source = '', from = '', to = '', today = '' } = {}) {
+      const filters = filterArgs(source, from, to, today);
       const selectedCompanies = source === 'BaFin' || source === 'ECB' ? [] : secGroups.all(...filters, 8, secOffset);
       const otherLimit = source === 'SEC' ? 0 : Math.max(0, limit - selectedCompanies.length);
       const otherRows = otherLimit ? otherItems.all(...filters, otherLimit, otherOffset) : [];
       const filings = companyFilings(selectedCompanies.map((group) => group.company_key), filters);
       const displayNames = new Map(selectedCompanies.map((group) => [group.company_key, group.company_name]));
-      for (const item of filings) item.company_name = displayNames.get((item.company_name || item.title).trim().toLocaleLowerCase()) || item.company_name;
+      for (const item of filings) item.company_name = displayNames.get(feedCompanyKey(item.company_name,item.title,item.link)) || item.company_name;
       const items = [...filings, ...otherRows].sort((a, b) => String(b.sort_date).localeCompare(String(a.sort_date)) || a.link.localeCompare(b.link));
       const nextCursor = { secOffset: secOffset + selectedCompanies.length, otherOffset: otherOffset + otherRows.length };
       const secTotalCount = source === 'BaFin' || source === 'ECB' ? 0 : secCount.get(...filters).count;
@@ -240,4 +259,4 @@ function startCollector(store, { fetcher = fetch, now = () => new Date(), schedu
   return { ready, refresh, stop: () => clearInterval(timer) };
 }
 
-module.exports = { HOUR, sources, parseFeed, openStore, startCollector, fetchXml };
+module.exports = { mountainDay, HOUR, sources, parseFeed, openStore, startCollector, fetchXml };

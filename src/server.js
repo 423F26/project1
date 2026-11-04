@@ -5,8 +5,9 @@ const { open } = require('node:fs/promises');
 const { join, extname } = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
 const https = require('node:https');
-const { openStore, startCollector } = require('./rss');
+const { openStore, startCollector, mountainDay } = require('./rss');
 const { SearchError, searchUs, searchGermany, validateSearch } = require('./company-search');
+const { secReference, companyId } = require('./company-store');
 const { MAX_FILINGS, MAX_UPLOAD, MAX_STORAGE, openAnalysisStore } = require('./analysis-store');
 
 const headers = {
@@ -67,32 +68,37 @@ function renderFeed(items) {
   for (const item of items) {
     if (item.publisher !== 'SEC') { groups.push({ item }); continue; }
     const name = item.company_name || item.title;
-    const key = name.trim().toLocaleLowerCase();
+    const reference = secReference(item);
+    const key = reference ? reference.cik : item.link;
     let group = companies.get(key);
-    if (!group) { group = { company: name, filings: [] }; companies.set(key, group); groups.push(group); }
+    if (!group) { group = { company: name, reference, filings: [] }; companies.set(key, group); groups.push(group); }
     group.filings.push(item);
   }
   const filingEntry = (item, company, primary = false) => {
     const label = item.form_type ? `${filingNames[item.form_type] ?? 'SEC filing'} (Form ${item.form_type})` : 'SEC filing';
     const heading = `${company} — ${label}`;
-    const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(item.published_at.slice(0, 10))} · ${escapeHtml(new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' }).format(new Date(item.published_at)))}</time>` : '';
+    const headingTag = secReference(item) ? 'h4' : 'h3';
+    const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(mountainDay(item.published_at))} · ${escapeHtml(new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver', timeZoneName: 'short' }).format(new Date(item.published_at)))}</time>` : '';
     const accession = /\/(\d{10}-\d{2}-\d{6})-index\.htm(?:[?#].*)?$/i.exec(item.link)?.[1] ?? '';
     const link = `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a>`;
     const excerpt = item.excerpt && !/^\w[\w-]{0,11}$/.test(item.excerpt) ? `<p class="summary">${escapeHtml(item.excerpt)}</p>` : '';
-    return `<div class="filing-entry${primary ? ' primary-filing' : ''}" data-link="${escapeHtml(item.link)}">${primary ? `<h3>${link}</h3>` : `<p class="filing-title">${link}</p>`}<p class="filing-meta">${date}${accession ? `<span>Accession ${escapeHtml(accession)}</span>` : ''}</p>${excerpt}</div>`;
+    return `<div class="filing-entry${primary ? ' primary-filing' : ''}" data-link="${escapeHtml(item.link)}">${primary ? `<${headingTag}>${link}</${headingTag}>` : `<p class="filing-title">${link}</p>`}<p class="filing-meta">${date}${accession ? `<span>Accession ${escapeHtml(accession)}</span>` : ''}</p>${excerpt}</div>`;
   };
   return groups.map((group) => {
     if (group.item) {
       const item = group.item;
-      const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(item.published_at.slice(0, 10))}</time>` : '';
+      const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(mountainDay(item.published_at))}</time>` : '';
       const heading = item.title;
       return `<article class="feed-item" data-publisher="${escapeHtml(item.publisher)}"><div class="meta"><span class="publisher">${escapeHtml(item.publisher)}</span>${date}</div><h3><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a></h3></article>`;
     }
-    return `<article class="feed-item company-group" data-publisher="SEC" data-company="${escapeHtml(group.company.toLocaleLowerCase())}"><div class="meta"><span class="publisher">SEC</span></div>${filingEntry(group.filings[0], group.company, true)}${group.filings.length > 1 ? `<details class="more-filings"><summary>+${group.filings.length - 1} more filing${group.filings.length === 2 ? '' : 's'}</summary><div class="filing-list">${group.filings.slice(1).map((item) => filingEntry(item, group.company)).join('')}</div></details>` : ''}</article>`;
+    return `<article class="feed-item company-group" data-publisher="SEC" data-company="${escapeHtml(group.company.toLocaleLowerCase())}"><div class="meta"><span class="publisher">SEC</span></div>${group.reference ? `<h3 class="company-heading"><a href="/companies/${companyId('US',group.reference.cik)}">${escapeHtml(group.company)}</a></h3>` : ''}${filingEntry(group.filings[0], group.company, true)}${group.filings.length > 1 ? `<details class="more-filings"><summary>+${group.filings.length - 1} more filing${group.filings.length === 2 ? '' : 's'}</summary><div class="filing-list">${group.filings.slice(1).map((item) => filingEntry(item, group.company)).join('')}</div></details>` : ''}</article>`;
   }).join('');
 }
 
 function createServer(options) {
+  const catalog = options.analysisStore?.catalog;
+  if (catalog) options.store?.archive?.(items => catalog.saveFeed(items));
+  const today = () => mountainDay(options.now?.() ?? new Date());
   const scripts = [...options.html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
   if (scripts.length !== 1) throw new Error('HTML must contain exactly one inline script');
   const scriptHash = createHash('sha256').update(scripts[0][1]).digest('base64');
@@ -116,7 +122,7 @@ function createServer(options) {
     if (recent.count > options.rateLimit) return reply(response, 429, 'Too many requests.\n');
     if (!options.allowedHosts.has(host)) return reply(response, 421, 'Misdirected request.\n');
     const url = new URL(request.url, 'https://localhost');
-    const createAnalysis = url.pathname === '/api/analysis-jobs' && request.method === 'POST';
+    const createAnalysis = ['/api/analysis-jobs','/api/report-runs'].includes(url.pathname) && request.method === 'POST';
     const upload = request.method === 'POST' && /^\/api\/analysis-jobs\/([0-9a-f-]{36})\/upload$/i.exec(url.pathname);
     if (request.method !== 'GET' && !createAnalysis && !upload) return reply(response, 405, 'Method not allowed.\n');
     if (upload) {
@@ -161,6 +167,7 @@ function createServer(options) {
         if (!queued) rmSync(path, { force: true });
       }
     }
+    if (/^\/(?:companies\/|reports\/|documents\/|api\/companies\/|api\/company-filings\/|api\/report-runs|viewer-assets\/)/.test(url.pathname) && await require('./company-pages').handleCompanyRequest({request,response,url,options,catalog,reply,readJsonBody})) return;
     if (createAnalysis) {
       if (request.headers['transfer-encoding'] || Number(request.headers['content-length'] ?? 0) > 16 * 1024) return reply(response, 413, 'Request body is too large or unsupported.\n');
       if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) return reply(response, 415, 'Expected a JSON request body.\n');
@@ -223,11 +230,11 @@ function createServer(options) {
       if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
       const source = url.searchParams.get('source') ?? '';
       const from = url.searchParams.get('from') ?? '', to = url.searchParams.get('to') ?? '';
+      if (from || to) return reply(response, 400, 'Recent Filings shows today only. Use a company page for history.\n');
       const secOffset = Number(url.searchParams.get('secOffset') ?? 0);
       const otherOffset = Number(url.searchParams.get('otherOffset') ?? 0);
-      const validDate = (value) => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value);
-      if (!['', 'SEC', 'BaFin', 'ECB'].includes(source) || !Number.isInteger(secOffset) || secOffset < 0 || secOffset > 1_000_000 || !Number.isInteger(otherOffset) || otherOffset < 0 || otherOffset > 1_000_000 || !validDate(from) || !validDate(to) || (from && to && from > to)) return reply(response, 400, 'Invalid feed filters.\n');
-      const page = options.store?.page?.({ limit: 20, secOffset, otherOffset, source, from, to }) ?? { items: [], nextCursor: { secOffset, otherOffset }, hasMore: false };
+      if (!['', 'SEC', 'BaFin', 'ECB'].includes(source) || !Number.isInteger(secOffset) || secOffset < 0 || secOffset > 1_000_000 || !Number.isInteger(otherOffset) || otherOffset < 0 || otherOffset > 1_000_000) return reply(response, 400, 'Invalid feed filters.\n');
+      const page = options.store?.page?.({ limit: 20, secOffset, otherOffset, source, today: today() }) ?? { items: [], nextCursor: { secOffset, otherOffset }, hasMore: false };
       const body = JSON.stringify({ html: renderFeed(page.items), ...page });
       return reply(response, 200, body, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
     }
@@ -242,11 +249,30 @@ function createServer(options) {
       try {
         validateSearch(company, formType, year, topic, market);
         const fetcher = options.fetcher ?? fetch;
-        const result = market === 'US'
+        let result = market === 'US'
           ? { market, companies: await searchUs({ company: company.trim(), formType, year, topic, fetcher }) }
           : { market, filings: await searchGermany(company.trim(), { formType, year, topic, fetcher }) };
+        if (catalog) {
+          result = catalog.saveSearch(result);
+          const local = catalog.lookup(market,company.trim());
+          if (market === 'US') {
+            const ids=new Set(result.companies.map(c=>c.companyId));
+            result.companies.push(...local.filter(c=>!ids.has(c.id)).map(c=>({name:c.name,ticker:c.ticker,cik:c.identity,companyId:c.id,filings:[]})));
+            result.companies=result.companies.slice(0,5);
+          } else {
+            const ids=new Set(result.filings.map(f=>f.companyId));
+            for(const c of local.filter(c=>!ids.has(c.id)))result.filings.push(...catalog.company(c.id).filings.slice(0,1).map(f=>({company:c.name,companyId:c.id,title:f.title,date:f.filed_at,url:f.url,information:f.form_type})));
+          }
+        }
         return reply(response, 200, JSON.stringify(result), { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
       } catch (error) {
+        if (catalog && (!(error instanceof SearchError) || error.status !== 400)) {
+          const cached = catalog.lookup(market, company.trim());
+          if (cached.length) {
+            const result = market === 'US' ? {market, companies:cached.map(c => ({name:c.name,ticker:c.ticker,cik:c.identity,companyId:c.id,filings:[]}))} : {market,filings:cached.flatMap(c => catalog.company(c.id).filings.map(f => ({company:c.name,companyId:c.id,title:f.title,date:f.filed_at,url:f.url,information:f.form_type})))};
+            return reply(response,200,JSON.stringify({...result,cachedOnly:true}),{'content-type':'application/json; charset=utf-8'});
+          }
+        }
         const status = error instanceof SearchError ? error.status : 502;
         const message = error instanceof SearchError ? error.message : 'The filing source could not be searched. Please try again.';
         return reply(response, status, JSON.stringify({ error: message }), { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -257,7 +283,7 @@ function createServer(options) {
       return reply(response, 413, 'Request body not accepted.\n');
     }
     request.on('data', () => request.destroy());
-    const firstPage = options.store?.page?.({ limit: 20, secOffset: 0, otherOffset: 0 }) ?? { items: options.store?.recent?.() ?? [], nextCursor: { secOffset: 0, otherOffset: 20 }, hasMore: false };
+    const firstPage = options.store?.page?.({ limit: 20, secOffset: 0, otherOffset: 0, today: today() }) ?? { items: (options.store?.recent?.() ?? []).filter(item => mountainDay(item.published_at) === today()), nextCursor: { secOffset: 0, otherOffset: 20 }, hasMore: false };
     const pageButtons = Array.from({ length: Math.min(firstPage.totalPages ?? 1, 10) }, (_, index) => `<button type="button" class="page-number" data-page="${index}"${index === 0 ? ' aria-current="page"' : ''}>${index + 1}</button>`).join('');
     const initialCounts = firstPage.totalCounts ?? { sec: 0, other: 0 };
     const html = options.html.replace('<!-- FEED_ITEMS -->', () => `${renderFeed(firstPage.items)}<p class="feed-status" aria-live="polite"></p><nav class="feed-pagination" aria-label="Filing pages" data-total-pages="${firstPage.totalPages ?? 1}" data-sec-count="${initialCounts.sec}" data-other-count="${initialCounts.other}"${firstPage.hasMore ? '' : ' hidden'}><button id="previous-page" type="button" aria-label="Previous page" disabled>‹</button><div class="page-numbers">${pageButtons}</div><span class="page-ellipsis" hidden>…</span><button id="next-page" type="button"><span data-de="Weiter">Next</span> ›</button></nav>`);

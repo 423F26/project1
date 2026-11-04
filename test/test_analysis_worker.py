@@ -1,4 +1,4 @@
-import importlib.util
+import sys
 import io
 import json
 import sqlite3
@@ -10,9 +10,8 @@ from unittest.mock import patch
 from pathlib import Path
 
 MODULE = Path(__file__).parents[1] / "src" / "analysis_worker.py"
-spec = importlib.util.spec_from_file_location("analysis_worker", MODULE)
-worker = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(worker)
+sys.path.insert(0,str(MODULE.parent))
+import analysis_worker as worker
 
 
 class TinyTokenizer:
@@ -188,6 +187,7 @@ class AnalysisWorkerTests(unittest.TestCase):
 
     def test_interrupted_jobs_return_to_queue_after_restart(self):
         db = sqlite3.connect(":memory:")
+        self.addCleanup(db.close)
         db.executescript((MODULE.parent / "analysis-schema.sql").read_text())
         db.execute("INSERT INTO analysis_jobs (id, source_key, market, filing_url, title, status, created_at, updated_at) VALUES ('id', 'key', 'US', 'https://www.sec.gov/x', 'title', 'classifying', '2026-01-01', '2026-01-01')")
         worker.recover_interrupted(db)
@@ -227,6 +227,7 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with patch.object(worker, "SOURCE_DIR", Path(temp)), patch.object(worker, "TEMP_DIR", Path(temp)), \
                      patch.object(worker, "filing_text", return_value=(source, passage, [job["filing_url"]])), \
                      patch.object(worker, "ensure_translation", return_value=(translator, TinyTokenizer())) as load, \
+                     patch.object(worker, "load_classifier", return_value=(TinyTokenizer(), classifier)), \
                      patch.object(worker, "translate_text", return_value="Translated financial statement.") as translate, \
                      patch.object(worker, "classify", return_value={"label": "neutral"}) as classify:
                     worker.process(db, job, models)

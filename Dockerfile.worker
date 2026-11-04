@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.13-slim AS worker-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -42,7 +42,31 @@ with torch.inference_mode():
     translated = translator.generate(**translation_tokenizer("Der Umsatz ist gestiegen.", return_tensors="pt"), max_new_tokens=64)
 assert translation_tokenizer.decode(translated[0], skip_special_tokens=True).strip()
 PY
-COPY --chown=1000:1000 src/analysis_worker.py src/analysis-schema.sql ./
-COPY --chown=1000:1000 docs/MODEL-NOTICES.md ./MODEL-NOTICES.md
+FROM worker-base AS model-build
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends git cmake build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN git init /opt/llama && cd /opt/llama && git remote add origin https://github.com/ggml-org/llama.cpp.git \
+    && git fetch --depth=1 origin 5851a8e505f4d5fbb183f2847698eb6155d176b7 && git checkout --detach FETCH_HEAD \
+    && cmake -B build -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF -DLLAMA_BUILD_TESTS=OFF \
+    && cmake --build build --config Release -j4 --target llama-server llama-quantize
+RUN HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0 python - <<'PYMODEL'
+from huggingface_hub import snapshot_download
+snapshot_download(repo_id="Qwen/Qwen3-4B-Instruct-2507", revision="cdbee75f17c01a7cc42f958dc650907174af0554", local_dir="/opt/source-model")
+PYMODEL
+RUN pip install --no-cache-dir -r /opt/llama/requirements/requirements-convert_hf_to_gguf.txt \
+    && mkdir /opt/report-model \
+    && python /opt/llama/convert_hf_to_gguf.py /opt/source-model --outfile /opt/model-f16.gguf --outtype f16 \
+    && /opt/llama/build/bin/llama-quantize /opt/model-f16.gguf /opt/report-model/qwen3-4b-q4_k_m.gguf Q4_K_M \
+    && cp /opt/source-model/README.md /opt/report-model/MODEL-CARD.md \
+    && cp /opt/llama/LICENSE /opt/report-model/LLAMA-LICENSE \
+    && sha256sum /opt/report-model/qwen3-4b-q4_k_m.gguf > /opt/report-model/SHA256SUMS
+
+FROM worker-base
+RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 libgomp1 && rm -rf /var/lib/apt/lists/*
+COPY --from=model-build /opt/llama/build/bin/llama-server /usr/local/bin/llama-server
+COPY --from=model-build /opt/report-model /opt/report-model
+COPY --chown=1000:1000 src ./src
+COPY --chown=1000:1000 docs/BIAS.md docs/MODEL-NOTICES.md ./docs/
+ENV REPORT_MODEL_PATH=/opt/report-model/qwen3-4b-q4_k_m.gguf
 USER 1000:1000
-CMD ["python", "analysis_worker.py"]
+CMD ["python", "src/worker_scheduler.py"]

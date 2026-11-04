@@ -58,8 +58,9 @@
     article a:hover { color: var(--accent); }
     .open-link { grid-column: 2; width: fit-content; margin-bottom: 8px; }
     .summary { grid-column: 2; max-width: 70ch; color: #d2d2cf; overflow-wrap: anywhere; }
+    .company-heading { grid-column:2; margin:0 0 12px; font:400 23px/1.35 Georgia,serif; }
     .company-group .primary-filing { grid-column: 2; }
-    .filing-entry h3, .filing-title { margin: 0 0 5px; font: 400 23px/1.35 Georgia, 'Times New Roman', serif; }
+    .filing-entry h3, .filing-entry h4, .filing-title { margin: 0 0 5px; font: 400 23px/1.35 Georgia, 'Times New Roman', serif; }
     .filing-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 0 0 8px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
     .more-filings { grid-column: 2; margin-top: 4px; color: var(--muted); }
     .more-filings summary { width: fit-content; cursor: pointer; }
@@ -188,8 +189,8 @@
   </section>
   <section class="feed" aria-label="Recent filings" data-de-aria-label="Aktuelle Berichte">
     <h2 class="feed-heading" data-de="Aktuelle Berichte">Recent Filings</h2>
-    <p class="feed-description" data-de="Neue SEC-Berichte sowie offizielle Meldungen von BaFin und EZB. Öffnen Sie die Originalquelle für Einzelheiten.">New SEC filings and official notices from BaFin and the ECB. Open the source for details.</p>
-    <details class="feed-filters"><summary data-de="Nach Quelle oder Datum filtern">Filter by source or date</summary><form class="filter-controls"><label><span data-de="Quelle">Filing source</span><select name="source"><option value="" data-de="Alle Quellen">All sources</option><option>SEC</option><option>BaFin</option><option>ECB</option></select></label><label><span data-de="Ab Datum">From date</span><input name="from" type="date"></label><label><span data-de="Bis Datum">To date</span><input name="to" type="date"></label><button type="submit"><span data-de="Filter anwenden">Apply filters</span></button><button type="reset"><span data-de="Zurücksetzen">Clear</span></button></form></details>
+    <p class="feed-description" data-de="Heutige SEC-Berichte sowie offizielle Meldungen von BaFin und EZB (US-Mountain-Zeit). Öffnen Sie die Originalquelle für Einzelheiten.">Today’s SEC filings and official notices from BaFin and the ECB (U.S. Mountain time). Open the source for details.</p>
+    <details class="feed-filters"><summary data-de="Nach Quelle filtern">Filter by source</summary><form class="filter-controls"><label><span data-de="Quelle">Filing source</span><select name="source"><option value="" data-de="Alle Quellen">All sources</option><option>SEC</option><option>BaFin</option><option>ECB</option></select></label><button type="submit"><span data-de="Filter anwenden">Apply filters</span></button><button type="reset"><span data-de="Zurücksetzen">Clear</span></button></form></details>
     <div id="recent-filings"><!-- FEED_ITEMS --></div>
   </section></main>
   <script data-cfasync="false">
@@ -579,7 +580,11 @@
       header.className = 'company-result-header';
       const heading = document.createElement('div');
       heading.className = 'company-result-heading';
-      addSearchText(heading, 'span', 'company-name', name);
+      const companyLink = document.createElement('a');
+      companyLink.className = 'company-name'; companyLink.textContent = name;
+      const savedId = market === 'US' ? lastSearchResult?.companies?.find(c => c.name === name)?.companyId : filings[0]?.companyId;
+      if (savedId) companyLink.href = `/companies/${savedId}?lang=${language}`;
+      heading.append(companyLink);
       addSearchText(heading, 'span', 'company-count', countLabel(count));
       const toggle = document.createElement('button');
       toggle.type = 'button';
@@ -729,6 +734,8 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || searchCopy[language].error);
         lastSearchResult = result;
+        const ids = result.market === 'US' ? result.companies.map(c => c.companyId).filter(Boolean) : [...new Set(result.filings.map(f => f.companyId).filter(Boolean))];
+        if (ids.length === 1) { location.href = `/companies/${ids[0]}?lang=${language}`; return; }
         if (result.market === 'DE') displayGermanResults(result.filings);
         else displayUsResults(result.companies);
         document.getElementById('results-heading').textContent = language === 'de' ? 'Suchergebnisse' : 'Search results';

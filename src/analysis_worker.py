@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import gc
 import hashlib
 import os
 import re
@@ -380,31 +381,11 @@ def set_status(db: sqlite3.Connection, job_id: str, status: str, *, error: str =
 
 
 def prune_for(db: sqlite3.Connection, bytes_needed: int, protect_id: str) -> bool:
-    if bytes_needed > MAX_STORAGE:
-        return False
-    victims = []
-    db.execute("BEGIN IMMEDIATE")
-    try:
-        total = db.execute("SELECT COALESCE(SUM(artifact_bytes),0) FROM analysis_jobs WHERE id<>?", (protect_id,)).fetchone()[0]
-        while total + bytes_needed > MAX_STORAGE:
-            victim = db.execute("SELECT id, artifact_bytes FROM analysis_jobs WHERE status='complete' AND id<>? ORDER BY completed_at, id LIMIT 1", (protect_id,)).fetchone()
-            if not victim:
-                db.rollback()
-                return False
-            victims.append(victim["id"])
-            db.execute("DELETE FROM analysis_uploads WHERE job_id=?", (victim["id"],))
-            db.execute("DELETE FROM analysis_jobs WHERE id=?", (victim["id"],))
-            total -= victim["artifact_bytes"]
-        # Reserve output bytes before publishing so concurrent web uploads see them.
-        db.execute("UPDATE analysis_jobs SET artifact_bytes=? WHERE id=?", (bytes_needed, protect_id))
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    for job_id in victims:
-        (SOURCE_DIR / f"{job_id}.source").unlink(missing_ok=True)
-        (SOURCE_DIR / f"{job_id}.result.json").unlink(missing_ok=True)
-        (UPLOAD_DIR / f"{job_id}.upload").unlink(missing_ok=True)
+    from report_worker import reserve
+    previous=db.execute('SELECT artifact_bytes FROM analysis_jobs WHERE id=?',(protect_id,)).fetchone()[0]
+    if not reserve(db,max(0,bytes_needed-previous),protect_id):return False
+    db.execute('UPDATE analysis_jobs SET artifact_bytes=? WHERE id=?',(bytes_needed,protect_id))
+    db.commit()
     return True
 
 
@@ -432,17 +413,20 @@ def chunk_text(tokenizer: Any, passage: str, max_tokens: int = 480) -> list[str]
     return output
 
 
+def load_classifier():
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    local_only = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    tokenizer = AutoTokenizer.from_pretrained(FINBERT_ID, cache_dir=MODEL_CACHE, local_files_only=local_only)
+    classifier = AutoModelForSequenceClassification.from_pretrained(FINBERT_ID, cache_dir=MODEL_CACHE, local_files_only=local_only).eval()
+    return tokenizer, classifier
+
+
 def load_models() -> tuple[Any, Any, Any, Any, Any]:
     import torch
-    from transformers import AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, AutoTokenizer
-
-    torch.set_num_threads(2)
+    torch.set_num_threads(4)
     torch.set_num_interop_threads(1)
-    local_only = os.environ.get("HF_HUB_OFFLINE", "0") == "1"
-    fin_tokenizer = AutoTokenizer.from_pretrained(FINBERT_ID, cache_dir=MODEL_CACHE, local_files_only=local_only)
-    classifier = AutoModelForSequenceClassification.from_pretrained(FINBERT_ID, cache_dir=MODEL_CACHE, local_files_only=local_only)
-    classifier.eval()
-    return torch, fin_tokenizer, classifier, None, None
+    tokenizer,classifier=load_classifier()
+    return torch,tokenizer,classifier,None,None
 
 
 def ensure_translation(torch: Any, translator: Any, tokenizer: Any) -> tuple[Any, Any]:
@@ -525,30 +509,33 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
         db.execute("UPDATE analysis_jobs SET status='extracting', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
         db.commit()
         raw_passages = paragraphs(text)
-        torch, fin_tokenizer, classifier, _, _ = models
-        results = []
-        for index, paragraph in enumerate(raw_passages):
-            if needs_translation and models[3] is None:
-                db.execute("UPDATE analysis_jobs SET status='translating', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
-                db.commit()
-                models[3], models[4] = ensure_translation(torch, models[3], models[4])
-            splitter = models[4] if needs_translation else fin_tokenizer
-            for part in chunk_text(splitter, paragraph, 448 if needs_translation else 480):
-                translation = None
-                sentiment_text = part
-                if needs_translation:
-                    db.execute("UPDATE analysis_jobs SET status='translating', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
-                    db.commit()
-                    translation = translate_text(torch, models[4], models[3], part)
-                    sentiment_parts = chunk_text(fin_tokenizer, translation)
-                else:
-                    sentiment_parts = [part]
-                db.execute("UPDATE analysis_jobs SET status='classifying', updated_at=? WHERE id=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), job_id))
-                db.commit()
-                for sentiment_text in sentiment_parts:
-                    results.append({"index": index, "original": part,
-                                    "translation": translation if len(sentiment_parts) == 1 else sentiment_text if translation else None,
-                                    "sentiment": classify(torch, fin_tokenizer, classifier, sentiment_text)})
+        translation_revision = None
+        prepared = []
+        if needs_translation:
+            db.execute("UPDATE analysis_jobs SET status='translating',updated_at=? WHERE id=?",(time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),job_id));db.commit()
+            models[1],models[2]=None,None
+            gc.collect()
+            models[3],models[4]=ensure_translation(models[0],models[3],models[4])
+            translation_revision=model_revision(models[3],TRANSLATION_ID)
+            for index,paragraph in enumerate(raw_passages):
+                for part in chunk_text(models[4],paragraph,448):
+                    prepared.append((index,part,translate_text(models[0],models[4],models[3],part)))
+            models[3],models[4]=None,None
+            gc.collect()
+            models[1],models[2]=load_classifier()
+        else:
+            models[3],models[4]=None,None
+            gc.collect()
+            for index,paragraph in enumerate(raw_passages):
+                for part in chunk_text(models[1],paragraph,480):prepared.append((index,part,None))
+        torch,fin_tokenizer,classifier,_,_=models
+        results=[]
+        db.execute("UPDATE analysis_jobs SET status='classifying',updated_at=? WHERE id=?",(time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),job_id));db.commit()
+        for index,part,translation in prepared:
+            sentiment_parts=chunk_text(fin_tokenizer,translation) if translation else [part]
+            for sentiment_text in sentiment_parts:
+                results.append({"index":index,"original":part,"translation":translation if len(sentiment_parts)==1 else sentiment_text if translation else None,
+                                "sentiment":classify(torch,fin_tokenizer,classifier,sentiment_text)})
         payload = {
             "market": job["market"], "title": job["title"],
             "source": {"url": job["filing_url"], "documents": document_urls, "cik": job["cik"], "accession": job["accession"], "formType": job["form_type"],
@@ -556,7 +543,7 @@ def process(db: sqlite3.Connection, job: sqlite3.Row, models: list[Any]) -> None
                        "upload": {"filename": upload["filename"], "sha256": upload["sha256"], "language": upload["language"], "user_supplied": True} if upload else None},
             "model": FINBERT_ID,
             "model_revision": model_revision(classifier, FINBERT_ID), "translation_model": TRANSLATION_ID if needs_translation else None,
-            "translation_revision": model_revision(models[3], TRANSLATION_ID) if needs_translation else None,
+            "translation_revision": translation_revision,
             "sentiment_kind": "financial sentiment; not financial bias", "passages": results,
             "coverage": {"extracted_characters": len(text), "passages": len(results), "complete_extraction": True}
         }
@@ -604,6 +591,8 @@ def run() -> None:
     while True:
         job = claim(db)
         if not job:
+            if '--once' in sys.argv:
+                return
             time.sleep(2)
             continue
         try:
@@ -621,6 +610,8 @@ def run() -> None:
             set_status(db, job["id"], "failed", error=f"Local analysis failed during {stage} ({type(error).__name__}). See worker logs for details.")
             print(f"Analysis job {job['id']} failed during {stage}.", file=sys.stderr, flush=True)
             traceback.print_exc()
+        if '--once' in sys.argv:
+            return
 
 
 def discard_upload(db: sqlite3.Connection, job_id: str) -> None:

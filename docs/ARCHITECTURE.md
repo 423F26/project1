@@ -1,76 +1,78 @@
 # Architecture
 
-The app searches recent U.S. company filings from SEC data and German publication results from the official Unternehmensregister. It also serves a feed of saved financial updates. Selected search results can be retrieved, text-extracted, and classified for financial sentiment by a separate local CPU worker. Full bias analysis remains unimplemented; sentiment is not a bias finding or score.
+Follow the [Repository guide](../AGENTS.md), [Design](agents/DESIGN.md), and [Ponytail](agents/PONYTAIL.md).
 
-## Main parts
+## Services and ownership
 
-| File | Role |
+Visitor → Cloudflare Access → Cloudflare Tunnel → `127.0.0.1:19283` → Node HTTPS service. The web container retains its 0.25 CPU / 128 MiB limit. One separate Python scheduler serializes sentiment and report subprocesses within **4 CPU / 8 GiB**, without published worker ports. Each subprocess releases its models before another job starts. German sentiment translation finishes and unloads before FinBERT classification. Report inference uses a temporary loopback-only llama.cpp server and never calls a hosted model.
+
+- `src/server.js`: host/method/body checks, existing feed/search/sentiment APIs, HTML rendering.
+- `src/rss.js`: eight fixed feeds collected at startup and hourly; saved history survives source failures.
+- `src/company-store.js`: durable company identity, filing metadata, cached comparison proposals, manual report creation.
+- `src/company-pages.js`: company/report pages, bounded JSON endpoints, isolated document delivery.
+- `src/analysis-store.js` and `src/analysis-schema.sql`: shared SQLite schema and legacy jobs.
+- `src/worker_scheduler.py`: one queue owner; subprocess deadlines and recovery.
+- `src/analysis_worker.py`: bounded publisher retrieval, uploads, translation, sentiment.
+- `src/report_worker.py`: local reports, exact quotation validation, coverage, assessment synthesis, shared quota pruning.
+- `public/index.html`, `public/company.js`, `public/company.css`, and `public/viewer.js`: bilingual controls, page styling, and PDF/HTML evidence navigation. Company styles/scripts are inlined; styling makes no new requests.
+
+## Company identity and cached history
+
+SEC companies use padded CIKs. Feed grouping uses CIK when the filing URL supplies it; unidentified source entries do not create guessed companies. German companies use the exact NFC-normalized registry company description; there is no fuzzy entity matching. Different registry descriptions remain separate until the publisher provides a stronger identity contract.
+
+The analysis database retains companies, filing metadata, report runs, assessments, and downloaded-document metadata. SEC filings deduplicate by CIK/accession; German filings deduplicate by validated registry URL. The RSS database remains independently persistent. Saved SEC feed entries are imported into the catalog at web startup and on collection. Searches retain their returned metadata without downloading documents or starting models. A unique search company opens its history page; ambiguous searches present company links. Source failures can return matching saved companies.
+
+Existing U.S. sentiment jobs are imported using CIK. German legacy jobs lack company identity and are attached only when a later saved search has the exact publication URL. No identity is inferred from a report title. Existing job URLs and stored JSON remain supported. Job links are derived from current jobs when reading a company page; catalog backfills only add missing records. Metadata retention is distinct from artifact retention.
+
+## Request contracts
+
+Existing APIs remain available except that home-feed date overrides now return `400`:
+
+| Route | Contract |
 | --- | --- |
-| [src/server.js](https://github.com/423F26/project1/blob/main/src/server.js) | HTTPS requests, security checks, feed rendering, and JSON responses |
-| [src/company-search.js](https://github.com/423F26/project1/blob/main/src/company-search.js) | SEC company lookup and submissions; official German registry search and result parsing |
-| [src/rss.js](https://github.com/423F26/project1/blob/main/src/rss.js) | Eight fixed feeds, hourly collection, XML parsing, and SQLite storage |
-| [src/analysis-store.js](https://github.com/423F26/project1/blob/main/src/analysis-store.js), [src/analysis_worker.py](https://github.com/423F26/project1/blob/main/src/analysis_worker.py) | Persistent selected-filing jobs, bounded document extraction, local English FinBERT inference, and local German-to-English translation |
-| [public/index.html](https://github.com/423F26/project1/blob/main/public/index.html) | Layout, styles, language toggle, feed filters, and pagination |
-| [src/dev.js](https://github.com/423F26/project1/blob/main/src/dev.js) | Local server and development certificates |
-| [compose.yaml](https://github.com/423F26/project1/blob/main/compose.yaml) / [Dockerfile](https://github.com/423F26/project1/blob/main/Dockerfile) | Deployment, storage ownership, and container limits |
-| [package.json](https://github.com/423F26/project1/blob/main/package.json) / [package-lock.json](https://github.com/423F26/project1/blob/main/package-lock.json) | Commands, project version, and locked dependencies |
-| [test/](https://github.com/423F26/project1/tree/main/test) | Server, feed, and language checks |
-| [_config.yml](https://github.com/423F26/project1/blob/main/_config.yml), [_layouts/default.html](https://github.com/423F26/project1/blob/main/_layouts/default.html), [assets/docs.css](https://github.com/423F26/project1/blob/main/assets/docs.css) | GitHub Pages documentation publishing, layout, and styles |
+| `GET /` | First page of today's feed |
+| `GET /api/filings?source=&secOffset=&otherOffset=` | Today's saved feed page; publisher filter and bounded cursors |
+| `GET /api/company-filings?market=&company=&formType=&year=&topic=` | Existing bounded publisher search plus retained company choices |
+| `POST /api/analysis-jobs`, `GET /api/analysis-jobs?ids=...`, `GET /api/analysis-jobs/{id}` | Existing selected-filing sentiment jobs |
+| `POST /api/analysis-jobs/{id}/upload` | Existing bounded German original upload |
+| `GET /analysis/{id}` | Existing sentiment details, explicitly separate from bias |
+| `GET /companies/{companyId}` | Company assessment, report history, all known filings, manual controls |
+| `GET /api/companies/{companyId}` | Same saved company data as JSON |
+| `GET /api/company-filings/{filingId}/prior` | Earlier cached filing with the same form and a known earlier reporting period; no retrieval |
+| `POST /api/report-runs` | `{companyId, primaryId, priorId?, additionalIds?}`; 1–40 cached filings from one company; returns `202 {id,status}` |
+| `GET /reports/{id}`, `GET /api/report-runs/{id}` | Saved report/progress, in HTML or JSON; `?status=1` returns only bounded progress metadata |
+| `GET /documents/{filingId}?report={id}&anchor={anchor}` | Original-layout document viewer and linked explanations |
+| `GET /documents/{filingId}/source` | Stored PDF or sanitized HTML/escaped text; never a caller-supplied path |
+| `GET /viewer-assets/pdf.mjs`, `GET /viewer-assets/pdf.worker.mjs` | Two fixed self-hosted PDF.js assets |
 
-## Request flow
+Company-page selection state contains only same-company filing IDs, resolved and labeled from the saved catalog. Selections from other pages remain visible and removable beside the report controls. Filter values remain in their query parameters; stale state cannot override them. Comparison suggestions cannot overwrite a newer primary or manual comparison choice.
 
-Deployment path: visitor → Cloudflare Access → Cloudflare Tunnel → `127.0.0.1:19283` → container → HTTPS server. See [Operations](OPERATIONS.md) for setup.
+Company listing filters are `form` (existing form groups or an exact source form), `year`, `topic` (existing metadata topic choices), `offset` (20 filings/page), and `reportOffset` (20 reports/page). `lang=en|de` selects saved explanation language. Form/year/topic filtering never changes the home feed's date boundary.
 
-The server checks requests in this order:
+The home feed always compares **publication timestamps** against the current **America/Denver** calendar day, including daylight saving changes. Unknown dates are excluded. Filtering precedes grouping, counts, and pagination, so a company's collapsed filings cannot include older dates. History is not deleted. Display dates/times use Mountain time too.
 
-1. Rate limit: excess requests return `429`.
-2. Allowed hostname: an unknown host returns `421`.
-3. Method: only `GET`, `POST /api/analysis-jobs`, and `POST /api/analysis-jobs/{jobId}/upload` are accepted; both POST routes validate the browser Origin when supplied and reject cross-site requests.
-4. Route and input:
-   - `/` without a query returns the first feed page as HTML.
-   - `/api/filings` returns rendered feed HTML, items, counts, and pagination data as JSON. Invalid filters return `400`.
-   - `/api/company-filings` validates the selected market, company query, filing type, year, and topic. U.S. searches return recent matching SEC filings; German searches filter up to 30 entries from the first page of official Unternehmensregister publications. Invalid input returns `400`; filing-source failures return `502`.
-   - `POST /api/analysis-jobs` accepts 1–40 selected SEC or German registry references, validates publisher hosts and paths, and returns deduplicated persistent job IDs. Request bodies are limited to 16 KiB and cross-origin requests are rejected.
-   - `POST /api/analysis-jobs/{jobId}/upload?filename=...&language=en|de` streams a raw document for an unavailable or failed German job. It creates a separate queued job and preserves the original. The request requires a declared size of 1 byte–25 MiB; chunked uploads, unsafe filenames, unsupported extensions, and invalid language choices are rejected.
-   - `GET /analysis/{jobId}` displays a completed job’s stored result as text. `GET /api/analysis-jobs?ids=...` returns up to 40 statuses for polling. `GET /api/analysis-jobs/{jobId}` returns one status and, when complete, its sentiment result and passages.
-   - Other paths, or a query on `/`, return `404`. Existing feed and company-search APIs reject request bodies.
+## Reports and evidence
 
-The feed API accepts `source` (empty, `SEC`, `BaFin`, or `ECB`), inclusive `from`/`to` dates (`YYYY-MM-DD`), and separate `secOffset`/`otherOffset` cursors (integers from 0 to 1,000,000).
+Report creation is manual. The user confirms a primary filing, optional proposed cached prior filing, and optional additional context filings. Prior candidates must have the same form, a known earlier reporting period, and an earlier filing date. German metadata receives a comparison period only when an explicit supported date is present. Missing comparable metadata yields no proposal. SEC index pages must identify a unique matching primary document before retrieval.
 
-U.S. company lookup uses SEC's company ticker directory and public submissions data. Results are limited to five matching companies and eight recent matching filings per company. Both market modes share the same search layout. Filing type choices reflect the selected market: SEC form groups in the U.S. and annual/interim/other publication categories in Germany. Year and topic filters are applied to the available filing metadata. Topic matching checks filing titles and source descriptions only; it does not inspect statement text. German search fetches and parses up to 30 entries from the first page of official register publication results, then filters those entries by publication year, type, and topic. German results therefore do not search older result pages when a filter excludes entries from the first page. Search itself stores no German results and retrieves no filing contents; selected results can be queued for retrieval by the analysis worker. The register may require registration for some deposited financial statements.
+Reports follow [BIAS.md](BIAS.md): what changed, bias review, financial risk profile. Bounded section reviews produce bilingual entries with exact original-source quotes. Reconciliation checks relevant other sections for explanations; comparison checks use both selected periods. The worker rejects unknown anchors, nonmatching quotations, invalid categories/ratings, missing languages/units/periods, unsupported figures, and invalid numeric changes. Calculated changes bind before/after values to the selected prior/current filings and use decimal arithmetic. Amounts must retain their adjacent source units and cited periods. Partial numbers, lost signs/scales, and ambiguous number separators are rejected; ambiguous formatted amounts remain quoted without a calculated delta. Numerical changes and the documented score formula are implemented in code, independently of generated prose. Sentiment is never substituted for bias.
 
-Selecting **Analyze selected** queues those current search results only. The Node service stores job metadata in `analysis.sqlite`; the separate worker retrieves HTTPS documents on the fixed publisher hosts and verified issuer catalogs described below, follows redirects only on the same host, and limits each download and combined filing content to 25 MiB. For German publication pages, it first attempts the verified issuer match described below. Otherwise, it reads an embedded `publicationText` body from the viewer data when present, without executing scripts or analyzing page navigation. Otherwise, it follows up to five same-host links with document file extensions. When none exist, a publication URL with a single payload uses the register viewer's public `/api/pub-html` endpoint with that same payload; listing text is never used as filing content. HTML/XML/plain text and text-based PDF are attempted; encrypted, scanned, unsupported, login-gated, too-short, or otherwise unreadable documents finish as unavailable. The UI shows each unavailable or failed filing's stored error reason as plain text, alongside any completed result links. The app does not claim complete review coverage for unreadable documents. Retrieved originals and extracted passage results are stored in `/analysis`. The worker applies a 25 GiB logical artifact quota, pruning the oldest completed jobs first; active jobs are never pruned. Host filesystem quotas are separate and may be needed for a hard disk cap.
+The worker checkpoints validated entries, with a 4 MiB report-output ceiling and a 1 MiB assessment ceiling. Before reconciliation, candidate findings remain potential concerns. Progress polling reads metadata only, without reloading growing report payloads. Unavailable sources, invalid output, timeouts, and missing model installation produce explicit partial/unavailable states. The deadline is one hour of active processing including retrieval and company synthesis; queue waiting is separate. Restart recovery requeues interrupted work. Company synthesis processes saved reports incrementally, cites contributing report IDs and dates, groups concerns, and must not treat later silence as resolution. It has no company score.
 
-English passages use `ProsusAI/finbert` on CPU. Registry publications explicitly marked `language=en` by the publisher bypass translation, including translation-model loading, regardless of their German market or URL. Other German-market publications retain German-to-English translation using `Helsinki-NLP/opus-mt-de-en` before FinBERT classification; missing or ambiguous language metadata does not bypass translation. Original text and any translation/model revision are retained together. Jobs that bypass translation store null translation fields and null translation-model metadata, even if another job has already loaded the translator. Each passage result contains positive, negative, and neutral probabilities. The model's license is CC BY-NC-SA 4.0 and limits use to non-commercial purposes; include attribution and retain the license notice. The translation model lists Apache 2.0. Model weights are downloaded during worker image build and their resolved revisions are recorded with results; the container runs offline and filing text is never sent to a model provider. This pipeline reports sentiment only and does not calculate bias, risk, or investment advice.
+**Current coverage ceiling:** table interpretation and complete-document review have not been validated. Reports therefore remain partial and the numeric score stays withheld. The calculation function requires complete coverage and calibration approval; neither is inferred from successful extraction or a zero-finding response. Team-reviewed English and German calibration and hardware measurements are release work, not established capabilities.
 
-## German document fallbacks
+## Viewer and artifact lifecycle
 
-Automatic issuer matching initially covers **Siemens AG annual statements and consolidated annual reports** listed in its official English/German annual-report catalogs. The registry metadata must identify Siemens AG exactly, an unambiguous report type, an explicit fiscal period from October 1 to September 30, and the document language. Exemption notices, subsidiary filings, missing periods, unknown issuers, ambiguous results, and mismatched report types are never replaced with a parent-company report. Unsupported or failed issuer matches retain registry retrieval, followed by manual upload when unavailable.
+PDF.js renders the stored original PDF, with page anchors, clickable passage overlays, and native disclosures containing readable extracted text for each page. HTML uses a maintained sanitizer and a sandboxed, script-free source response; safe table structure and inline formatting survive. Source scripts, network requests, forms, frames, and unsafe styling are removed. XML/TXT use escaped text. Quotes can span HTML text nodes. Missing exact positions are explicitly disclosed. Viewer scripts and workers are served locally; the main page retains its single hashed inline script.
 
-The worker selects a unique matching PDF filename from the corresponding language catalog, validates the extracted issuer identity and year, and accepts only Siemens asset URLs under `assets.new.siemens.com/siemens/assets/api/uuid:` or its `assets.ctfassets.net/17si5cpawjzf/` tenant. The report URL is recorded in the result. Catalog changes that prevent a verified match fall back safely. Additional issuers need verified adapters; the worker does not search arbitrary websites or accept user-supplied download hosts.
+Originals and anchor files live under `/analysis/library`; legacy originals/results remain under `/analysis/documents`, with uploads staged under `/analysis/uploads`. Upload provenance retains user-supplied status, filename, language, and SHA-256. Legacy German bundles preserve their actual linked original for viewing; ambiguous multi-document bundles are unavailable rather than mapped to invented anchors.
 
-Unavailable/failed German jobs expose **Upload downloaded original**. Users download the original through their browser, complete any CAPTCHA there, choose PDF/HTML/XML/TXT and its language, and confirm that it belongs to the selected publication. The server streams it to `/analysis/uploads/{newJobId}.upload` with a generated filename and restricted permissions, then transactionally creates a new job plus `analysis_uploads` metadata. Files are never served or executed. Uploaded documents use the existing extraction and inference limits and require no worker network access. English uploads skip translation based on the user's explicit language choice. Results mark uploads as user-supplied, preserve the original registry reference, and record the filename and SHA-256; they do not assert an independently verified match.
+The shared 25 GiB logical cap counts legacy jobs, library artifacts, report payloads, assessments, and upload reservations. Publication reserves space under a SQLite write transaction. Old terminal report payloads and unprotected originals may be pruned; active/queued report inputs and active sentiment work are protected. Pruned reports have an explicit unavailable state, removed documents return `410`, and associated assessments are invalidated. Company/filing metadata remains. A host filesystem quota is still needed for a physical disk cap.
 
-The 25 GiB logical storage limit counts queued uploads and concurrent upload reservations. The worker accounts for active input files when pruning completed artifacts; it removes staged inputs after success or failure, and clears uncommitted orphan files older than an hour at startup. The web server removes interrupted/invalid uploads. Upload bodies have a 120-second deadline; JSON job creation keeps its five-second body deadline and 16 KiB limit, while headers retain a five-second deadline. Uploads use the existing shared volume and need no new service or dependency.
+## Security and publishing
 
-## Feed and page behavior
+TLS 1.2+, exact host allowlists, direct-socket rate limits, bounded headers, same-origin POST checks, JSON size limits, upload limits, fixed retrieval hosts, and read-only unprivileged containers remain in place. Report creation accepts at most 16 KiB; uploads retain the 25 MiB/120-second limit. Filing contents are untrusted model input and have no tools or external model access. The loopback inference endpoint is not exposed by Compose.
 
-Sources are the U.S. Securities and Exchange Commission (SEC), Germany's financial regulator (BaFin), and the European Central Bank (ECB). The collector reads three SEC, two BaFin, and three ECB feeds at startup and hourly. It skips overlapping refreshes. SQLite, a database stored in one file, holds metadata and excerpts; repeated source/item IDs update existing rows. Display queries remove duplicate links. Failed feeds leave saved data intact; history is never pruned automatically.
+The home page retains its restrictive CSP. Company/report/viewer pages permit only self-hosted scripts, same-origin reads, the fixed PDF worker, and isolated same-origin document frames. Source HTML has `script-src 'none'`, `default-src 'none'`, and `sandbox allow-same-origin` without script permission. No source-provided executable content is admitted.
 
-Each page has up to 20 display entries, including at most eight SEC company groups. Each group includes all its matching filings, so a page may contain more than 20 filing links. The latest filing is shown first; additional filings are collapsed. BaFin and ECB entries show a linked title, publisher, and available date. Filters and page changes read saved data only and replace the displayed results.
-
-One inline script controls English/German labels and feed requests. It preserves entered values and selections, saves `pageLanguage` when browser storage permits, and leaves publisher text in its source language. Some generated labels remain English; see [Operations](OPERATIONS.md#using-the-page).
-
-## Documentation website
-
-GitHub Pages builds the existing Markdown files with Jekyll after pushes to `main`. One shared layout and stylesheet match the webapp's colors and typography. Navigation is generated from the rendered pages; internal Markdown links become website links. Agile records and app/runtime files are excluded and linked on GitHub. See [publishing details](OPERATIONS.md#documentation-website).
-
-## Security boundary
-
-- TLS 1.2+, certificate/key paths, and an exact hostname allowlist are required. Rate limits use the direct socket address and ignore forwarded IP headers; tunnel users may share one limit.
-- There are no cookies or CORS access. Job creation accepts a bounded JSON body, and the upload route accepts a bounded streamed document; other APIs reject request bodies. Headers, request time, and connection reuse are limited; errors are plaintext.
-- Feed fetches use fixed publisher URLs, a 10-second timeout, a 2 MiB limit, and HTTPS redirects restricted to the original host. Company search makes bounded requests to fixed SEC and Unternehmensregister endpoints with a 12-second timeout and an 8 MiB response limit. Unsafe XML is rejected. Displayed text is escaped and filing links require HTTPS.
-- HTML uses a restrictive Content Security Policy (CSP): the single inline script is allowed by its SHA-256 hash, feed requests stay on the same origin, and forms/frames are blocked. HSTS requires future HTTPS visits; referrer headers are disabled.
-- The web container runs as `node`, with all Linux capabilities dropped and a read-only filesystem except its RSS and analysis volumes and temporary storage. It retains its 0.25 CPU and 128 MiB memory limits. A separate unprivileged Python analysis worker has no published ports, a read-only root filesystem, a 256 MiB temporary filesystem, 64-process limit, 2 CPU and 4 GiB memory limits. Root initialization services only set named-volume ownership.
-
-Follow the [Repository guide](../AGENTS.md) when changing these boundaries.
+GitHub Pages continues to publish repository Markdown via Jekyll on pushes to `main`; runtime source and Agile records stay excluded. See [Operations](OPERATIONS.md) for deployment, model provenance, validation limits, and publishing.

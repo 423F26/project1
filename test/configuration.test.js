@@ -43,10 +43,10 @@ test('serves the HTML root and feed API with the configured request protections'
   for (const value of ['Financial review', 'Find company filings', 'Recent Filings']) assert.match(success.body, new RegExp(value));
   for (const value of ['RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Directional bias']) assert.doesNotMatch(success.body, new RegExp(value));
   assert.match(success.body, /<button id="language-toggle" type="button"/);
-  assert.match(success.body, /<button type="button"><span data-de="Berichte suchen">Find filings<\/span><\/button>/);
+  assert.match(success.body, /<button id="company-search-submit" type="submit">Find filings<\/button>/);
   assert.equal((success.body.match(/<input[^>]*type="url"/g) ?? []).length, 0);
   assert.equal((success.body.match(/<article/g) ?? []).length, 0);
-  assert.equal((success.body.match(/<form\b/g) ?? []).length, 1);
+  assert.equal((success.body.match(/<form\b/g) ?? []).length, 2);
   assert.match(success.body, /<form class="filter-controls">/);
   assert.match(success.body, /<nav class="feed-pagination"[^>]* hidden>/);
   const feed = request(server, { url: '/api/filings' });
@@ -70,7 +70,7 @@ test('serves the HTML root and feed API with the configured request protections'
 test('serves saved feed entries without publisher requests', () => {
   const html = readFileSync(require.resolve('../public/index.html'), 'utf8');
   const queries = [];
-  const server = createServer({ tls: {}, allowedHosts: new Set(['plaintext.example.com']), rateLimit: 10, html, store: {
+  const server = createServer({ tls: {}, allowedHosts: new Set(['plaintext.example.com']), rateLimit: 10, html, now: () => new Date('2026-09-30T12:00:00Z'), store: {
     page: options => {
       queries.push(options);
       return {
@@ -88,13 +88,13 @@ test('serves saved feed entries without publisher requests', () => {
   assert.match(response.body, /<time datetime="2026-09-30T12:00:00.000Z">2026-09-30<\/time>/);
   assert.doesNotMatch(response.body, /Policy update/);
   assert.doesNotMatch(response.body, /FEED_ITEMS|RSS source manager|Directional bias/);
-  const feed = request(server, { url: '/api/filings?source=ECB&from=2026-09-01&to=2026-09-30' });
+  const feed = request(server, { url: '/api/filings?source=ECB' });
   assert.equal(feed.status, 200);
   const page = JSON.parse(feed.body);
   assert.match(page.html, /New &amp; important \$&/);
   assert.doesNotMatch(page.html, /Policy update/);
   assert.deepEqual(queries, [
-    { limit: 20, secOffset: 0, otherOffset: 0 },
-    { limit: 20, secOffset: 0, otherOffset: 0, source: 'ECB', from: '2026-09-01', to: '2026-09-30' }
+    { limit: 20, secOffset: 0, otherOffset: 0, today: '2026-09-30' },
+    { limit: 20, secOffset: 0, otherOffset: 0, source: 'ECB', today: '2026-09-30' }
   ]);
 });

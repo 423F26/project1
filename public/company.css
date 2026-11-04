@@ -1,0 +1,269 @@
+:root {
+  color-scheme: dark;
+  --surface: #101214;
+  --text: #eeeae3;
+  --muted: #b8b8b5;
+  --excerpt: #d2d2cf;
+  --placeholder: #949494;
+  --control: #777777;
+  --separator: #34373b;
+  --accent: #bfd8ed;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 36px 40px;
+  background: #000;
+  color: var(--text);
+  font:
+    400 16px/1.6 Arial,
+    Helvetica,
+    sans-serif;
+}
+main {
+  max-width: 1086px;
+  margin: auto;
+}
+h1,
+h2,
+h3 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+h1 {
+  margin: 0 0 16px;
+  font-size: 40px;
+  line-height: 1.15;
+}
+h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  line-height: 1.25;
+}
+h3 {
+  margin: 0 0 12px;
+  font-size: 23px;
+  line-height: 1.35;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 4px;
+}
+p,
+blockquote {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+small,
+.muted,
+.filing-meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+blockquote {
+  margin: 16px 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--separator);
+  color: var(--excerpt);
+}
+button,
+input,
+select {
+  min-height: 46px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--control);
+  border-radius: 8px;
+  background: #000;
+  color: var(--text);
+  font:
+    400 16px/1.5 Arial,
+    Helvetica,
+    sans-serif;
+}
+input::placeholder {
+  color: var(--placeholder);
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  background: var(--surface);
+}
+button:disabled {
+  color: var(--muted);
+  cursor: wait;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--separator);
+}
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 20px;
+  border: 1px solid var(--control);
+  border-radius: 999px;
+}
+article,
+section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 14px;
+}
+.controls select,
+.controls input {
+  width: 100%;
+}
+.company-filings {
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+.company-filings li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.company-filings label {
+  font-size: 16px;
+}
+.company-filings input[type='checkbox'] {
+  width: 20px;
+  min-height: 20px;
+  margin-right: 8px;
+  accent-color: var(--accent);
+}
+.report-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+.primary-action {
+  min-height: 48px;
+  padding-inline: 24px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #000;
+}
+.primary-action:hover {
+  background: #c6e0fa;
+}
+.skip {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #000;
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+#status {
+  white-space: pre-wrap;
+}
+.document-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+#viewer {
+  position: relative;
+  max-height: 75vh;
+  overflow: auto;
+}
+.document-layout aside article {
+  padding-top: 0;
+}
+iframe {
+  display: block;
+  width: 100%;
+  height: 75vh;
+  border: 1px solid var(--control);
+}
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.page-image {
+  position: relative;
+}
+.page-text {
+  max-width: 70ch;
+  padding-block: 12px;
+}
+.page-text pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+@media (max-width: 760px) {
+  body {
+    padding: 32px 24px;
+  }
+  h1 {
+    font-size: 34px;
+  }
+  .document-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  body {
+    padding: 24px 16px;
+  }
+  h1 {
+    font-size: 30px;
+  }
+  h3 {
+    font-size: 22px;
+  }
+  .page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .primary-action {
+    width: 100%;
+  }
+  #viewer {
+    max-height: 60vh;
+  }
+  iframe {
+    height: 60vh;
+  }
+}

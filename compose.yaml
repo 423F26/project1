@@ -65,8 +65,8 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 64
-    cpus: 2
-    mem_limit: 4096m
+    cpus: 4
+    mem_limit: 8192m
     restart: unless-stopped
 volumes:
   rss_data:

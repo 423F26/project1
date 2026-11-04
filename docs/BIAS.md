@@ -69,7 +69,7 @@ Preserve source layout, tables, and page references. Connect exact highlighted p
 
 ## Future collection
 
-When full bias analysis is implemented, analyze new material during [hourly feed collection](ARCHITECTURE.md#feed-and-page-behavior) and publish results automatically. Retrieve full linked documents when available; otherwise apply the no-score rule. The selected-filing sentiment worker does not perform this review or alter its rules or research basis.
+This sprint explicitly keeps all analysis manual. Hourly feed collection saves metadata only; visits, search, and language changes never start models. A confirmed report run retrieves selected known documents and refreshes the saved company assessment. Automatic analysis remains deferred. Retrieve full linked documents when available; otherwise apply the no-score rule. Neither worker alters these rules or their research basis.
 
 ## Sentiment model boundary
 
