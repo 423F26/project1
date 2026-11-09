@@ -9,7 +9,7 @@
 
 ## 1. Program
 
-Project 1 is a web application for finding public company filings and making them easier to review. Users can search U.S. SEC filings or German Unternehmensregister publications, select documents, and run local passage-level financial sentiment analysis. The homepage also presents recent updates from SEC, BaFin, and ECB feeds.
+Project 1 (to be later named) is a web application for finding public company filings and making them easier to review. Users can search U.S. SEC filings or German Unternehmensregister publications, select documents, and run local passage-level financial sentiment analysis. The homepage also presents recent updates from SEC, BaFin, and ECB feeds.
 
 ### Program specifications
 
