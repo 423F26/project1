@@ -40,14 +40,16 @@ test('serves the HTML root and feed API with the configured request protections'
   assert.equal(success.headers['content-security-policy'].split('; ').find(rule => rule.startsWith('script-src ')), `script-src 'sha256-${scriptHash}'`);
   for (const rule of ["default-src 'none'", "img-src https:", "connect-src 'self'", "frame-src 'none'", "form-action 'none'", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(success.headers['content-security-policy'].includes(rule));
   assert.equal(success.headers['referrer-policy'], 'no-referrer');
-  for (const value of ['Financial review', 'Find company filings', 'Recent Filings']) assert.match(success.body, new RegExp(value));
+  for (const value of ['Zwicky', 'Find company filings', 'Recent Filings']) assert.match(success.body, new RegExp(value));
   for (const value of ['RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Directional bias']) assert.doesNotMatch(success.body, new RegExp(value));
-  assert.match(success.body, /<button id="language-toggle" type="button"/);
+  assert.match(success.body, /<select id="language-select"/);
+  assert.doesNotMatch(success.body, /name="topic"|Focus on a topic/);
+  for (const type of ['current', 'ownership', 'registration', 'other']) assert.match(success.body, new RegExp(`value="${type}" data-market="US"`));
   assert.match(success.body, /<button id="company-search-submit" type="submit">Find filings<\/button>/);
   assert.equal((success.body.match(/<input[^>]*type="url"/g) ?? []).length, 0);
   assert.equal((success.body.match(/<article/g) ?? []).length, 0);
   assert.equal((success.body.match(/<form\b/g) ?? []).length, 2);
-  assert.match(success.body, /<form class="filter-controls">/);
+  assert.match(success.body, /<form class="filter-controls"/);
   assert.match(success.body, /<nav class="feed-pagination"[^>]* hidden>/);
   const feed = request(server, { url: '/api/filings' });
   assert.equal(feed.status, 200);
@@ -94,7 +96,7 @@ test('serves saved feed entries without publisher requests', () => {
   assert.match(page.html, /New &amp; important \$&/);
   assert.doesNotMatch(page.html, /Policy update/);
   assert.deepEqual(queries, [
-    { limit: 20, secOffset: 0, otherOffset: 0, today: '2026-09-30' },
-    { limit: 20, secOffset: 0, otherOffset: 0, source: 'ECB', today: '2026-09-30' }
+    { limit: 20, secOffset: 0, otherOffset: 0, now: '2026-09-30T12:00:00.000Z' },
+    { limit: 20, secOffset: 0, otherOffset: 0, source: 'ECB', now: '2026-09-30T12:00:00.000Z' }
   ]);
 });

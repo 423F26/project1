@@ -70,7 +70,7 @@ test('Mountain calendar handles midnight, daylight saving time and unknown dates
   assert.equal(mountainDay(null), '');
   assert.equal(mountainDay('invalid'), '');
 });
-test('today filter runs before company grouping and pagination and preserves history', () => {
+test('rolling 24-hour first-discovered filter runs before grouping and pagination and preserves history', () => {
   const store = openStore(':memory:');
   try {
     const entries = [
@@ -86,17 +86,17 @@ test('today filter runs before company grouping and pagination and preserves his
       link: 'https://www.sec.gov/' + key,
       publishedAt: date,
       excerpt: '',
-      fetchedAt: '2026-07-01T10:00:00Z',
+      fetchedAt: key === 'old' ? '2026-07-01T09:59:59Z' : key === 'unknown' ? '2026-07-01T09:59:59Z' : '2026-07-01T10:00:00Z',
     }));
     store.save(entries);
-    const p = store.page({ today: '2026-07-01' });
+    const p = store.page({ now: '2026-07-02T10:00:00Z' });
     assert.deepEqual(
       p.items.map((x) => x.link),
       ['https://www.sec.gov/today'],
     );
     assert.equal(p.totalCounts.sec, 1);
-    assert.equal(store.page().items.length, 3);
-    assert.equal(store.page({ today: '2026-07-02' }).items.length, 0);
+    assert.equal(store.page({ now: '2026-07-01T10:00:00Z' }).items.length, 3);
+    assert.equal(store.page({ now: '2026-07-03T10:00:00Z' }).items.length, 0);
   } finally {
     store.close();
   }
@@ -110,7 +110,7 @@ test('filtering historical feed rows keeps timezone-formatting memory bounded', 
       excerpt: '', fetchedAt: '2025-01-01T12:00:00.000Z'
     })));
     const before = process.memoryUsage().rss;
-    const page = store.page({ today: '2026-11-04' });
+    const page = store.page({ now: '2026-11-04T12:00:00Z' });
     const growth = process.memoryUsage().rss - before;
     assert.equal(page.items.length, 0);
     assert.ok(growth < 32 * 1024 ** 2, `Feed query allocated ${growth} bytes`);

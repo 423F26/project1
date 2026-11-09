@@ -5,6 +5,7 @@ const { mkdtempSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const test = require('node:test');
+const { DatabaseSync } = require('node:sqlite');
 const { HOUR, sources, parseFeed, openStore, startCollector, fetchXml } = require('../src/rss');
 const { renderFeed } = require('../src/server');
 
@@ -36,14 +37,14 @@ test('parses feed entries, persists and deduplicates across restarts, and escape
     store.save(items);
     store.save(items);
     store.save([{ ...items[0], sourceUrl: sources[6][1] }]);
-    assert.equal(store.recent().length, 1);
+    assert.equal(store.recent({ now: '2026-09-30T14:00:00Z' }).length, 1);
     store.close();
     store = openStore(file);
-    assert.equal(store.recent().length, 1);
-    const html = renderFeed(store.recent());
-    assert.match(html, /Bank &amp; alert\(1\)/);
+    assert.equal(store.recent({ now: '2026-09-30T14:00:00Z' }).length, 1);
+    const html = renderFeed(store.recent({ now: '2026-09-30T14:00:00Z' }));
+    assert.match(html, /SEC filing/);
     assert.doesNotMatch(html, /<script>/);
-    assert.match(html, /A &amp; B/);
+    assert.doesNotMatch(html, /A &amp; B/);
     store.close();
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
@@ -97,10 +98,38 @@ test('applies corrections and finds 20 distinct links beyond repeated rows', () 
     const item = parseFeed(rss, sources[5][1], 'SEC', '2026-09-30T13:00:00Z')[0];
     store.save([item]);
     store.save([{ ...item, title: 'Corrected', excerpt: 'Updated excerpt' }]);
-    assert.equal(store.recent()[0].title, 'Corrected');
-    assert.equal(store.recent()[0].excerpt, 'Updated excerpt');
+    assert.equal(store.recent({ now: '2026-09-30T14:00:00Z' })[0].title, 'Corrected');
+    assert.equal(store.recent({ now: '2026-09-30T14:00:00Z' })[0].excerpt, 'Updated excerpt');
     store.save(Array.from({ length: 110 }, (_, i) => ({ ...item, itemId: `repeat-${i}` })));
     store.save(Array.from({ length: 20 }, (_, i) => ({ ...item, itemId: `distinct-${i}`, link: `https://www.sec.gov/item-${i}`, publishedAt: '2026-09-29T12:00:00Z' })));
-    assert.equal(store.recent().length, 20);
+    assert.equal(store.recent({ now: '2026-09-30T14:00:00Z' }).length, 20);
   } finally { store.close(); }
+});
+
+test('keeps first discovery across later scrapes and duplicate feeds at the inclusive 24-hour boundary', () => {
+  const store = openStore(':memory:');
+  try {
+    const first = parseFeed(rss, sources[5][1], 'SEC', '2026-09-30T12:00:00.000Z')[0];
+    store.save([first]);
+    store.save([{ ...first, sourceUrl: sources[6][1], fetchedAt: '2026-10-01T11:59:00.000Z' }]);
+    assert.equal(store.recent({ now: '2026-10-01T12:00:00.000Z' }).length, 1);
+    assert.equal(store.recent({ now: '2026-10-01T12:00:00.001Z' }).length, 0);
+    store.close();
+  } finally { try { store.close(); } catch {} }
+});
+
+test('migrates legacy feed rows without inventing first-discovery times', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'rss-migration-'));
+  try {
+    const file = join(directory, 'old.sqlite'), database = new DatabaseSync(file);
+    database.exec(`CREATE TABLE feed_items (source_url TEXT NOT NULL,publisher TEXT NOT NULL,item_id TEXT NOT NULL,title TEXT NOT NULL,link TEXT NOT NULL,published_at TEXT,excerpt TEXT NOT NULL,fetched_at TEXT NOT NULL,company_name TEXT NOT NULL DEFAULT '',form_type TEXT NOT NULL DEFAULT '',PRIMARY KEY(source_url,item_id))`);
+    database.prepare('INSERT INTO feed_items VALUES(?,?,?,?,?,?,?,?,?,?)').run('old-feed','SEC','old','Legacy Co','https://www.sec.gov/legacy','2026-10-01T11:00:00Z','','2026-10-01T11:30:00Z','Legacy Co','10-K');
+    database.close();
+    const store = openStore(file);
+    try {
+      store.save([{ sourceUrl: 'new-feed', publisher: 'SEC', itemId: 'new-id', title: 'Updated Legacy Co', link: 'https://www.sec.gov/legacy', publishedAt: '2026-10-01T11:55:00Z', excerpt: '', fetchedAt: '2026-10-01T11:59:00Z', companyName: 'Legacy Co', formType: '10-K' }]);
+      assert.equal(store.recent({ now: '2026-10-01T12:00:00Z' }).length, 0);
+    }
+    finally { store.close(); }
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });

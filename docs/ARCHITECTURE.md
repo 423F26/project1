@@ -30,9 +30,9 @@ Existing APIs remain available except that home-feed date overrides now return `
 
 | Route | Contract |
 | --- | --- |
-| `GET /` | First page of today's feed |
-| `GET /api/filings?source=&secOffset=&otherOffset=` | Today's saved feed page; publisher filter and bounded cursors |
-| `GET /api/company-filings?market=&company=&formType=&year=&topic=` | Existing bounded publisher search plus retained company choices |
+| `GET /` | First page of the rolling 24-hour feed |
+| `GET /api/filings?source=&secOffset=&otherOffset=` | Rolling 24-hour saved feed page; publisher filter and bounded cursors |
+| `GET /api/company-filings?market=&company=&formType=&year=` | Existing bounded publisher search plus retained company choices |
 | `POST /api/analysis-jobs`, `GET /api/analysis-jobs?ids=...`, `GET /api/analysis-jobs/{id}` | Existing selected-filing sentiment jobs |
 | `POST /api/analysis-jobs/{id}/upload` | Existing bounded German original upload |
 | `GET /analysis/{id}` | Existing sentiment details, explicitly separate from bias |
@@ -49,7 +49,7 @@ Company-page selection state contains only same-company filing IDs, resolved and
 
 Company listing filters are `form` (existing form groups or an exact source form), `year`, `topic` (existing metadata topic choices), `offset` (20 filings/page), and `reportOffset` (20 reports/page). `lang=en|de` selects saved explanation language. Form/year/topic filtering never changes the home feed's date boundary.
 
-The home feed always compares **publication timestamps** against the current **America/Denver** calendar day, including daylight saving changes. Unknown dates are excluded. Filtering precedes grouping, counts, and pagination, so a company's collapsed filings cannot include older dates. History is not deleted. Display dates/times use Mountain time too.
+The home feed filters on persistent **first-fetched timestamps** using the rolling interval from now minus 24 hours through now. First discovery is set once per canonical document link and survives repeat scrapes and duplicate feed sources; existing rows migrate with a null first-fetched timestamp and are excluded from the home feed. Filtering precedes company grouping, counts, and pagination, so collapsed filings cannot include older documents. History is not deleted. Added and publication times display in Mountain time; unknown publication time is labeled unavailable. Historical date overrides remain rejected.
 
 ## Reports and evidence
 

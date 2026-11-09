@@ -2,7 +2,7 @@
   "name": "plaintext-https-service",
   "version": "0.2.1",
   "private": true,
-  "description": "Untitled Financial Bias Detector",
+  "description": "Zwicky financial review",
   "scripts": {
     "dev": "node --watch src/dev.js",
     "start": "node src/server.js",

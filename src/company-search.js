@@ -37,6 +37,17 @@ async function jsonResponse(fetcher, url, headers) {
 
 function normalize(value) { return String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim(); }
 
+const TOPIC_TERMS = {
+  revenue: /revenue|sales|turnover|contract with customers|umsatzerl[eö]se|umsatz|erl[oö]se/i,
+  estimates: /reserve|allowance|estimate|impairment|provision|r[uü]ckstell|sch[aä]tz|wertminderung/i,
+  depreciation: /depreciation|amortization|useful life|asset lives|abschreibung|nutzungsdauer/i,
+  non_gaap: /non.?gaap|non.?ifrs|adjusted|bereinigt/i
+};
+
+function topicMatches(topic, ...values) {
+  return !topic || (TOPIC_TERMS[topic] && TOPIC_TERMS[topic].test(values.filter(Boolean).join(' ')));
+}
+
 async function companyDirectory(fetcher) {
   const canCache = fetcher === fetch;
   if (canCache && tickerCache && Date.now() < tickerCacheExpires) return tickerCache;
@@ -58,30 +69,27 @@ function companyMatches(entries, query) {
   }).filter((item) => item.rank < 99).sort((a, b) => a.rank - b.rank || a.entry.title.localeCompare(b.entry.title)).slice(0, 5).map(({ entry }) => entry);
 }
 
-const TOPIC_TERMS = {
-  revenue: /revenue|sales|turnover|contract with customers|umsatzerl[eö]se|umsatz|erl[oö]se/i,
-  estimates: /reserve|allowance|estimate|impairment|provision|r[uü]ckstell|sch[aä]tz|wertminderung/i,
-  depreciation: /depreciation|amortization|useful life|asset lives|abschreibung|nutzungsdauer/i,
-  non_gaap: /non.?gaap|non.?ifrs|adjusted|bereinigt/i
-};
-
-function topicMatches(topic, ...values) {
-  return !topic || (TOPIC_TERMS[topic] && TOPIC_TERMS[topic].test(values.filter(Boolean).join(' ')));
+function filingGroup(form) {
+  const type = form.toUpperCase().replace(/\/A$/, '');
+  if (/^(10-K|10-KT|20-F|40-F)$/.test(type)) return 'annual';
+  if (/^(10-Q|10-QT)$/.test(type)) return 'quarterly';
+  if (/^(8-K|6-K)$/.test(type)) return 'current';
+  if (/^(3|4|5)$/.test(type) || /^(13D|13G|13F)/.test(type)) return 'ownership';
+  if (/^(S-|F-|424B|485|N-1A|POS)/.test(type)) return 'registration';
+  return 'other';
 }
 
-function filingRows(company, submissions, formType, reportYear, topic = '') {
+function filingRows(company, submissions, formType, reportYear) {
   const recent = submissions.filings?.recent;
   if (!recent) return [];
   const rows = [];
   for (let index = 0; index < (recent.form?.length ?? 0); index += 1) {
     const form = recent.form[index];
-    if (formType === 'annual' && !['10-K', '20-F'].includes(form)) continue;
-    if (formType === 'quarterly' && form !== '10-Q') continue;
+    if (formType !== 'any' && filingGroup(form) !== formType) continue;
     const filingDate = recent.filingDate[index] ?? '';
     const reportDate = recent.reportDate[index] ?? '';
     if (reportYear && (reportDate || filingDate).slice(0, 4) !== reportYear) continue;
     const description = recent.primaryDocDescription?.[index] ?? '';
-    if (!topicMatches(topic, form, description)) continue;
     const accession = recent.accessionNumber[index];
     if (!/^\d{10}-\d{2}-\d{6}$/.test(accession ?? '')) continue;
     const cik = String(company.cik_str).padStart(10, '0');
@@ -99,7 +107,7 @@ function filingRows(company, submissions, formType, reportYear, topic = '') {
   return rows;
 }
 
-async function searchUs({ company, formType = 'any', year = '', topic = '', fetcher = fetch }) {
+async function searchUs({ company, formType = 'any', year = '', fetcher = fetch }) {
   const entries = await companyDirectory(fetcher);
   const matches = companyMatches(entries, company);
   if (!matches.length) return [];
@@ -110,7 +118,7 @@ async function searchUs({ company, formType = 'any', year = '', topic = '', fetc
       name: data.name || entry.title,
       ticker: entry.ticker,
       cik,
-      filings: filingRows(entry, data, formType, year, topic)
+      filings: filingRows(entry, data, formType, year)
     };
   }));
   return results;
@@ -202,7 +210,7 @@ function germanTypeMatches(filing, formType) {
   return !annual && !interim;
 }
 
-async function searchGermany(company, { formType = 'any', year = '', topic = '', fetcher = fetch } = {}) {
+async function searchGermany(company, { formType = 'any', year = '', fetcher = fetch } = {}) {
   const url = await germanSearchUrl(company, fetcher);
   const resultsUrl = new URL(url);
   resultsUrl.searchParams.set('areas', 'publications');
@@ -213,16 +221,14 @@ async function searchGermany(company, { formType = 'any', year = '', topic = '',
   });
   return germanFilingRows(html).filter((filing) =>
     germanTypeMatches(filing, formType) &&
-    (!year || filing.date.startsWith(`${year}-`)) &&
-    topicMatches(topic, filing.title, filing.information)
+    (!year || filing.date.startsWith(`${year}-`))
   );
 }
 
-function validateSearch(query, formType, year, topic = '', market = 'US') {
+function validateSearch(query, formType, year, market = 'US') {
   if (typeof query !== 'string' || query.trim().length < 2 || query.length > 100 || /[\u0000-\u001f\u007f]/.test(query)) throw new SearchError('Enter a company name, ticker, or identifier (2–100 characters).', 400);
-  const validTypes = market === 'DE' ? ['any', 'annual', 'interim', 'other'] : ['any', 'annual', 'quarterly'];
+  const validTypes = market === 'DE' ? ['any', 'annual', 'interim', 'other'] : ['any', 'annual', 'quarterly', 'current', 'ownership', 'registration', 'other'];
   if (!validTypes.includes(formType)) throw new SearchError('Choose a valid filing type.', 400);
-  if (!['', 'revenue', 'estimates', 'depreciation', 'non_gaap'].includes(topic)) throw new SearchError('Choose a valid topic.', 400);
   const currentYear = new Date().getUTCFullYear();
   if (year && (!/^\d{4}$/.test(year) || Number(year) < 1990 || Number(year) > currentYear + 1)) throw new SearchError('Choose a valid reporting year.', 400);
 }

@@ -107,35 +107,34 @@ function openStore(path) {
     fetched_at TEXT NOT NULL,
     company_name TEXT NOT NULL DEFAULT '',
     form_type TEXT NOT NULL DEFAULT '',
+    first_fetched_at TEXT,
     PRIMARY KEY (source_url, item_id)
   )`);
   const columns = new Set(db.prepare('PRAGMA table_info(feed_items)').all().map((column) => column.name));
   if (!columns.has('company_name')) db.exec("ALTER TABLE feed_items ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
   if (!columns.has('form_type')) db.exec("ALTER TABLE feed_items ADD COLUMN form_type TEXT NOT NULL DEFAULT ''");
+  if (!columns.has('first_fetched_at')) db.exec('ALTER TABLE feed_items ADD COLUMN first_fetched_at TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS feed_items_recent ON feed_items(COALESCE(published_at, fetched_at) DESC)');
   const insert = db.prepare(`INSERT INTO feed_items
-    (source_url, publisher, item_id, title, link, published_at, excerpt, fetched_at, company_name, form_type)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (source_url, publisher, item_id, title, link, published_at, excerpt, fetched_at, company_name, form_type, first_fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (source_url, item_id) DO UPDATE SET
       publisher = excluded.publisher, title = excluded.title, link = excluded.link,
       published_at = excluded.published_at, excerpt = excluded.excerpt, fetched_at = excluded.fetched_at,
       company_name = excluded.company_name, form_type = excluded.form_type`);
-  const recent = db.prepare(`SELECT publisher, title, link, published_at, excerpt, company_name, form_type FROM (
-    SELECT publisher, title, link, published_at, excerpt, company_name, form_type,
-      COALESCE(published_at, fetched_at) AS sort_date,
-      ROW_NUMBER() OVER (PARTITION BY link ORDER BY COALESCE(published_at, fetched_at) DESC) AS rank
+  const recent = db.prepare(`SELECT publisher, title, link, published_at, excerpt, company_name, form_type, first_fetched_at FROM (
+    SELECT publisher, title, link, published_at, excerpt, company_name, form_type, first_fetched_at,
+      first_fetched_at AS sort_date,
+      ROW_NUMBER() OVER (PARTITION BY link ORDER BY first_fetched_at DESC) AS rank
     FROM feed_items WHERE (? = '' OR publisher = ?)
-      AND (? = '' OR date(COALESCE(published_at, fetched_at)) >= date(?))
-      AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))
+      AND first_fetched_at >= ? AND first_fetched_at <= ?
     ) WHERE rank = 1 ORDER BY sort_date DESC, link ASC LIMIT ? OFFSET ?`);
   const filterSql = `(? = '' OR publisher = ?)
-      AND (? = '' OR date(COALESCE(published_at, fetched_at)) >= date(?))
-      AND (? = '' OR date(COALESCE(published_at, fetched_at)) <= date(?))
-      AND (? = '' OR mountain_day(published_at) = ?)`;
+      AND first_fetched_at >= ? AND first_fetched_at <= ?`;
   const rankedSql = `WITH ranked AS (
-    SELECT publisher, title, link, published_at, excerpt, company_name, form_type,
-      COALESCE(published_at, fetched_at) AS sort_date,
-      ROW_NUMBER() OVER (PARTITION BY link ORDER BY COALESCE(published_at, fetched_at) DESC) AS rank
+    SELECT publisher, title, link, published_at, excerpt, company_name, form_type, first_fetched_at,
+      first_fetched_at AS sort_date,
+      ROW_NUMBER() OVER (PARTITION BY link ORDER BY first_fetched_at DESC) AS rank
     FROM feed_items WHERE ${filterSql}
   )`;
   const secGroups = db.prepare(`${rankedSql}
@@ -144,7 +143,7 @@ function openStore(path) {
     FROM ranked WHERE rank = 1 AND publisher = 'SEC'
     GROUP BY company_key ORDER BY sort_date DESC, company_key ASC LIMIT ? OFFSET ?`);
   const otherItems = db.prepare(`${rankedSql}
-    SELECT publisher, title, link, published_at, excerpt, company_name, form_type, sort_date
+    SELECT publisher, title, link, published_at, excerpt, company_name, form_type, first_fetched_at, sort_date
     FROM ranked WHERE rank = 1 AND publisher <> 'SEC'
     ORDER BY sort_date DESC, link ASC LIMIT ? OFFSET ?`);
   const secCount = db.prepare(`${rankedSql}
@@ -158,12 +157,12 @@ function openStore(path) {
     if (!companyKeys.length) return [];
     const placeholders = companyKeys.map(() => '?').join(',');
     return db.prepare(`${rankedSql}
-      SELECT publisher, title, link, published_at, excerpt, company_name, form_type, sort_date
+      SELECT publisher, title, link, published_at, excerpt, company_name, form_type, first_fetched_at, sort_date
       FROM ranked WHERE rank = 1 AND publisher = 'SEC'
         AND company_key(company_name,title,link) IN (${placeholders})
       ORDER BY sort_date DESC, link ASC`).all(...filters, ...companyKeys);
   };
-  const filterArgs = (source, from, to, today) => [source, source, from, from, to, to, today, today];
+  const filterArgs = (source, earliest, now) => [source, source, earliest, now];
   return {
     archive(callback) {
       archive = callback;
@@ -172,16 +171,21 @@ function openStore(path) {
     save(items) {
       db.exec('BEGIN');
       try {
-        for (const item of items) insert.run(item.sourceUrl, item.publisher, item.itemId, item.title, item.link, item.publishedAt, item.excerpt, item.fetchedAt, item.companyName ?? '', item.formType ?? '');
+        for (const item of items) {
+          const existing = db.prepare('SELECT COUNT(*) AS count, MIN(first_fetched_at) AS first_fetched_at FROM feed_items WHERE link = ?').get(item.link);
+          const firstFetchedAt = existing.count ? existing.first_fetched_at : new Date(item.fetchedAt).toISOString();
+          insert.run(item.sourceUrl, item.publisher, item.itemId, item.title, item.link, item.publishedAt, item.excerpt, item.fetchedAt, item.companyName ?? '', item.formType ?? '', firstFetchedAt);
+        }
         db.exec('COMMIT');
       } catch (error) { db.exec('ROLLBACK'); throw error; }
       if (archive) archive(items.map(i => ({...i,company_name:i.companyName,form_type:i.formType,published_at:i.publishedAt})));
     },
-    recent({ limit = 20, offset = 0, source = '', from = '', to = '' } = {}) {
-      return recent.all(source, source, from, from, to, to, limit, offset);
+    recent({ limit = 20, offset = 0, source = '', now = new Date().toISOString() } = {}) {
+      const earliest = new Date(Date.parse(now) - HOUR * 24).toISOString();
+      return recent.all(source, source, earliest, now, limit, offset);
     },
-    page({ limit = 20, secOffset = 0, otherOffset = 0, source = '', from = '', to = '', today = '' } = {}) {
-      const filters = filterArgs(source, from, to, today);
+    page({ limit = 20, secOffset = 0, otherOffset = 0, source = '', from = '', to = '', now = new Date().toISOString() } = {}) {
+      const filters = filterArgs(source, new Date(Date.parse(now) - HOUR * 24).toISOString(), now);
       const selectedCompanies = source === 'BaFin' || source === 'ECB' ? [] : secGroups.all(...filters, 8, secOffset);
       const otherLimit = source === 'SEC' ? 0 : Math.max(0, limit - selectedCompanies.length);
       const otherRows = otherLimit ? otherItems.all(...filters, otherLimit, otherOffset) : [];

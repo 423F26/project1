@@ -111,6 +111,17 @@ button:disabled {
   margin-bottom: 32px;
   border-bottom: 1px solid var(--separator);
 }
+.product-name {
+  font: 400 24px/1.2 Georgia, "Times New Roman", serif;
+}
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--control);
+  border-radius: 8px;
+}
 .language-switch {
   display: inline-flex;
   align-items: center;

@@ -35,10 +35,11 @@ test("switches both languages without requests or losing company, type, source o
   const w = page(t),
     d = w.document;
   d.getElementById("reporting-year").value = "2025";
-  const toggle = d.getElementById("language-toggle");
-  toggle.click();
+  const selector = d.getElementById("language-select");
+  selector.value = "de";
+  selector.dispatchEvent(new w.Event("change"));
   assert.equal(d.documentElement.lang, "de");
-  assert.equal(d.getElementById("language-name").textContent, "English");
+  assert.equal(selector.value, "de");
   assert.equal(
     d.querySelector(".feed-heading").textContent,
     "Aktuelle Berichte",
@@ -47,16 +48,25 @@ test("switches both languages without requests or losing company, type, source o
   assert.equal(d.getElementById("filing-type").value, "quarterly");
   assert.equal(d.getElementById("reporting-year").value, "2025");
   assert.equal(d.querySelector("[name=source]").value, "ECB");
-  assert.equal(w.localStorage.getItem("pageLanguage"), "de");
-  assert.equal(
-    d.getElementById("language-flag").getAttribute("aria-hidden"),
-    "true",
-  );
-  assert.equal(
-    d.getElementById("language-toggle").getAttribute("aria-label"),
-    "Seite auf Englisch anzeigen",
-  );
-  toggle.click();
+  selector.value = "en";
+  selector.dispatchEvent(new w.Event("change"));
+  d.querySelector('input[name="market"][value="DE"]').click();
+  assert.equal(d.getElementById("company-label").textContent, "Company name or EUID");
+  assert.equal(d.getElementById("year-label").textContent, "Reporting year");
+  assert.equal(d.getElementById("company-search-submit").textContent, "Find filings");
+  assert.equal(d.getElementById("us-company").placeholder, "e.g., Siemens AG");
+  assert.equal(w.localStorage.getItem("pageLanguage"), "en");
+  assert.equal(selector.getAttribute("aria-label"), "Language");
+  selector.value = "en";
+  selector.dispatchEvent(new w.Event("change"));
+  assert.equal(d.getElementById("us-company").placeholder, "e.g., Siemens AG");
+  selector.value = "de";
+  selector.dispatchEvent(new w.Event("change"));
+  assert.equal(d.getElementById("us-company").placeholder, "z. B. Siemens AG");
+  d.querySelector('input[name="market"][value="US"]').click();
+  d.getElementById("filing-type").value = "quarterly";
+  selector.value = "en";
+  selector.dispatchEvent(new w.Event("change"));
   assert.equal(d.documentElement.lang, "en");
   assert.equal(d.querySelector(".feed-heading").textContent, "Recent Filings");
   assert.equal(d.getElementById("filing-type").value, "quarterly");
@@ -71,8 +81,10 @@ test("restores saved language and supports storage denial", (t) => {
     "Unternehmensberichte finden",
   );
   const privatePage = page(t, null, true);
-  privatePage.document.getElementById("language-toggle").click();
+  privatePage.document.getElementById("language-select").value = "de";
+  privatePage.document.getElementById("language-select").dispatchEvent(new privatePage.Event("change"));
   assert.equal(privatePage.document.documentElement.lang, "de");
-  privatePage.document.getElementById("language-toggle").click();
+  privatePage.document.getElementById("language-select").value = "en";
+  privatePage.document.getElementById("language-select").dispatchEvent(new privatePage.Event("change"));
   assert.equal(privatePage.document.documentElement.lang, "en");
 });

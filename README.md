@@ -1,4 +1,4 @@
-# Untitled (Zwicky)
+# Zwicky
 > Group 1, ESOF423, Fall 2026 · Professor Daniel DeFrance · Montana State University
 
 Search U.S. SEC filings or German Unternehmensregister publications, then open a company's permanent page to review all locally known filings and saved reports. The home feed shows only today's SEC, BaFin, and ECB updates in U.S. Mountain time. Manually select cached filings for local bilingual reports covering changes, potential bias, and disclosed financial risks, with linked PDF/HTML source evidence. Local passage sentiment remains separate from bias. Reports are currently partial and numeric bias scores stay withheld pending reviewed calibration and complete-coverage validation. No hosted model or automatic analysis is used.
