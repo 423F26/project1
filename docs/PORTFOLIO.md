@@ -72,6 +72,6 @@ We run document retrieval and model inference in a separate worker rather than i
 
 ## 7. Software development life cycle model
 
-Project 1 has been developed iteratively using sprints and a product backlog. The team can point to the maintained [Agile artifacts](agile/README.md) as its planning record. Working in increments let us build and review the search interface, filing retrieval, and analysis pipeline as separate pieces rather than waiting until the end to see whether the application worked as a whole.
+Project 1 has been developed iteratively using sprints and a product backlog. The team can point to the maintained [Agile artifacts](agile/README.md) as its planning record. This document encapsulates all of the agile artifacts into one simple spreadsheet. Workload was divided into increments called "sprints." Working in sprints let us build and review the search interface, filing retrieval, and analysis pipeline as separate pieces rather than waiting until the end to see whether the application worked as a whole.
 
 **Team reflection — to complete:** Give one concrete example of a sprint review, backlog change, or technical problem that changed the next step. Also describe one limitation of the team's process (for example, coordination between meetings or the time available for testing) and what the team did about it. Use the team's actual experience.
