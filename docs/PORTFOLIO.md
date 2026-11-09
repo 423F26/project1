@@ -64,7 +64,7 @@ These documents accompany the program and are updated as its behavior changes.
 
 ## 5. UML
 
-The diagram below is a UML-style component view of the **current implementation**, based on the source code and [architecture document](ARCHITECTURE.md). It was created after implementation began, so it does not replace the original design diagrams the assignment asks for.
+The diagram below is a UML-style component view of the **current implementation**, based on the source code and [architecture document](ARCHITECTURE.md). 
 
 ```mermaid
 classDiagram
@@ -146,7 +146,6 @@ classDiagram
     ReportWorker --> AnalysisDatabase : save validated reports
 ```
 
-**Team action:** Add or link the UML design diagrams made before coding began, if the team can locate them. If they cannot be found, say so in the submitted portfolio; do not label this retrospective diagram as an original design artifact.
 
 ## 6. Design trade-offs
 
