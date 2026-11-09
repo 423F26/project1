@@ -37,14 +37,14 @@ The implementation is in [`src/analysis-store.js`](https://github.com/423F26/pro
 
 ## 2. Teamwork
 
-Use generic labels in this section, as requested by the assignment. Fill in contributions and time estimates together; the percentages should total 100%.
+The product backlog assigned work by maintainer and tracked status, completion date, and work points. Team member 1 handled the initial webpage and repository setup, README update, German language toggle, server-side RSS feed, UI update, and bias-detection prototype. Team member 2 handled the initial web interface and demo features, search-interface updates, and RSS filtering. Both members shared the research task defining financial-statement bias. We coordinated through the backlog, and direct communication was straightforward after we exchanged phone numbers.
 
 | Team member | Primary contributions | Estimated share of team project time |
 | --- | --- | ---: |
-| Team member 1 | **To complete with the team:** describe the work this person primarily owned, with one specific example. | ___% |
-| Team member 2 | **To complete with the team:** describe the work this person primarily owned, with one specific example. | ___% |
+| Team member 1 | Webpage and repository setup; README; German toggle; RSS backend; UI update; bias-detection prototype; shared bias-detection research. | 53.4% |
+| Team member 2 | Web interface and demo; search-interface work; RSS filtering; shared bias-detection research. | 46.6% |
 
-**Team reflection — to complete:** Describe how work was coordinated, how the team communicated, and one example of something that went well or that the team had to improve. Keep this grounded in what actually happened.
+The shares use completed work points as a proxy for effort because the backlog does not provide a consistent measure of actual time. Completed solo tasks total 320 points for Team member 1 and 275 for Team member 2. The shared 75-point research task is split equally, giving 357.5 of 670 completed points (53.4%) and 312.5 of 670 (46.6%), respectively. This is an estimate, not a timesheet-based allocation.
 
 ## 3. Design pattern
 
@@ -64,7 +64,89 @@ These documents accompany the program and are updated as its behavior changes.
 
 ## 5. UML
 
-**Team action:** Attach or link the UML design diagrams created before implementation began. I did not find a pre-coding UML diagram in the current repository. Do not present the current [architecture document](ARCHITECTURE.md) as a pre-coding diagram; it documents the system as it exists now. If the original diagrams cannot be located, state that clearly in the submitted portfolio rather than recreating them and implying they predate coding.
+The diagram below is a UML-style component view of the **current implementation**, based on the source code and [architecture document](ARCHITECTURE.md). It was created after implementation began, so it does not replace the original design diagrams the assignment asks for.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class Browser {
+        bilingual search and filing selection
+        company and report pages
+    }
+    class WebServer {
+        HTTPS routes and input validation
+        renders pages and serves APIs
+    }
+    class CompanySearch {
+        searchUs()
+        searchGermany()
+    }
+    class CompanyPages {
+        company and report routes
+        document viewer routes
+    }
+    class RSSCollector {
+        collect SEC, BaFin, ECB feeds
+        persist feed history
+    }
+    class CompanyCatalog {
+        companies and filing metadata
+        reports and assessments
+    }
+    class AnalysisStore {
+        queue sentiment jobs
+        shared SQLite access
+    }
+    class WorkerScheduler {
+        serialize background jobs
+    }
+    class AnalysisWorker {
+        retrieve and extract filings
+        translate German and classify sentiment
+    }
+    class ReportWorker {
+        compare filings and build evidence-based reports
+        run local report inference
+    }
+    class RSSDatabase {
+        saved feed items
+    }
+    class AnalysisDatabase {
+        companies, filings, jobs, reports
+    }
+    class PublicSources {
+        SEC EDGAR
+        Unternehmensregister
+        SEC, BaFin, ECB feeds
+    }
+    class LocalModels {
+        German translation model
+        FinBERT and report model
+    }
+
+    Browser --> WebServer : HTTPS requests
+    WebServer --> CompanySearch : company filing search
+    CompanySearch --> PublicSources : query filings
+    CompanySearch --> CompanyCatalog : save search results
+    WebServer --> CompanyPages : company, report, document routes
+    CompanyPages --> CompanyCatalog : read and create reports
+    WebServer --> AnalysisStore : sentiment job APIs
+    AnalysisStore --> CompanyCatalog : shared catalog
+    RSSCollector --> PublicSources : collect published updates
+    RSSCollector --> RSSDatabase : save feed history
+    CompanyCatalog --> AnalysisDatabase : persist metadata and reports
+    AnalysisStore --> AnalysisDatabase : persist job queue and artifacts
+    WorkerScheduler --> AnalysisWorker : run sentiment jobs
+    WorkerScheduler --> ReportWorker : run report jobs
+    AnalysisWorker --> PublicSources : retrieve selected documents
+    AnalysisWorker --> LocalModels : translate and classify
+    AnalysisWorker --> AnalysisDatabase : save job results
+    ReportWorker --> LocalModels : generate report text
+    ReportWorker --> AnalysisDatabase : save validated reports
+```
+
+**Team action:** Add or link the UML design diagrams made before coding began, if the team can locate them. If they cannot be found, say so in the submitted portfolio; do not label this retrospective diagram as an original design artifact.
 
 ## 6. Design trade-offs
 
