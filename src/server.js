@@ -10,6 +10,7 @@ const { SearchError, searchUs, searchGermany, validateSearch } = require('./comp
 const { secReference, companyId } = require('./company-store');
 const { MAX_FILINGS, MAX_UPLOAD, MAX_STORAGE, openAnalysisStore } = require('./analysis-store');
 const mountainTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver', timeZoneName: 'short' });
+const mountainDateNumeric = new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', timeZone: 'America/Denver' });
 
 const headers = {
   'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -77,11 +78,12 @@ function renderFeed(items) {
   }
   const filingEntry = (item) => {
     const label = item.form_type ? `${filingNames[item.form_type] ?? 'SEC filing'} (Form ${item.form_type})` : 'SEC filing';
-    const displayDateTime = (value) => `${mountainDay(value)} · ${mountainTime.format(new Date(value))}`;
-    const added = item.first_fetched_at ? displayDateTime(item.first_fetched_at) : '';
-    const published = item.published_at ? displayDateTime(item.published_at) : '<span data-de="Veröffentlichungszeit nicht verfügbar">Publication time unavailable</span>';
+    const fetchedAt = item.first_fetched_at ? mountainTime.format(new Date(item.first_fetched_at)) : '';
+    const published = item.published_at
+      ? `<time datetime="${escapeHtml(item.published_at)}">${mountainDateNumeric.format(new Date(item.published_at)).replaceAll('/', '-')} <span data-de="um">at</span> ${escapeHtml(mountainTime.format(new Date(item.published_at)))}</time>`
+      : '<span data-de="Veröffentlichungszeit nicht verfügbar">Publication time unavailable</span>';
     const link = `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}<span class="visually-hidden"> (opens in a new tab)</span></a>`;
-    return `<div class="filing-entry" data-link="${escapeHtml(item.link)}"><p class="filing-title">${link}</p><p class="filing-meta"><span><span data-de="Hinzugefügt">Added</span>: <time datetime="${escapeHtml(item.first_fetched_at ?? '')}">${escapeHtml(added)}</time></span><span><span data-de="Veröffentlicht">Published</span>: ${item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(published)}</time>` : published}</span></p></div>`;
+    return `<div class="filing-entry" data-link="${escapeHtml(item.link)}"><p class="filing-title">${link}</p><p class="filing-meta"><span><span data-de="Veröffentlicht">Published</span>: ${published} · <span data-de="Abgerufen um">Fetched at</span> <time datetime="${escapeHtml(item.first_fetched_at ?? '')}">${escapeHtml(fetchedAt)}</time></span></p></div>`;
   };
   return groups.map((group) => {
     if (group.item) {
@@ -222,9 +224,12 @@ function createServer(options) {
         } catch { output = de ? 'Gespeichertes Analyseergebnis ist nicht verfügbar.' : 'Stored analysis result is unavailable.'; }
       } else output = `${job.status}${job.error ? `: ${job.error}` : ''}`;
       const title = de ? 'Analysedetails' : 'Analysis details';
-      const home = de ? 'Startseite' : 'Home';
-      const html = `<!doctype html><html lang="${de ? 'de' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zwicky | ${title}</title></head><body><header style="display:flex;align-items:center;justify-content:space-between;gap:16px"><h1>Zwicky</h1><a href="/" style="display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;border:1px solid #777;border-radius:8px;color:inherit">${home}</a></header><h2>${title}</h2><h3>${escapeHtml(job.title)}</h3><pre style="white-space: pre-wrap; overflow-wrap: anywhere">${escapeHtml(output)}</pre></body></html>`;
-      return reply(response, 200, html, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" });
+      const language = de ? 'de' : 'en';
+      const languageLabel = de ? 'Sprache' : 'Language';
+      const languageScript = `const s=document.getElementById('language-select');try{const saved=localStorage.getItem('pageLanguage'),query=new URLSearchParams(location.search);if(!query.has('lang')&&saved==='de'){query.set('lang','de');location.replace(location.pathname+'?'+query.toString()+location.hash)}else localStorage.setItem('pageLanguage','${language}')}catch{}s.addEventListener('change',()=>{const lang=s.value==='de'?'de':'en';try{localStorage.setItem('pageLanguage',lang)}catch{}const target=new URL(location.href);target.searchParams.set('lang',lang);location.assign(target.pathname+target.search+target.hash)});`;
+      const languageHash = createHash('sha256').update(languageScript).digest('base64');
+      const html = `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zwicky | ${title}</title><style>body{margin:24px;background:#000;color:#eeeae3;font:16px/1.6 Arial,Helvetica,sans-serif}.page-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #34373b}.brand{color:inherit;font:400 32px/1.2 Georgia,'Times New Roman',serif;text-decoration:none}.language-picker{position:relative;display:inline-flex;align-items:center}.language-picker:after{position:absolute;right:14px;color:#b8b8b5;content:'⌄';pointer-events:none}.language-picker select{width:140px;min-height:44px;padding:8px 32px;appearance:none;border:1px solid #777;border-radius:22px;background:#000;color:#eeeae3;font:inherit;text-align:center;text-align-last:center}a:focus-visible,select:focus-visible{outline:2px solid #bfd8ed;outline-offset:4px}</style></head><body><header class="page-header"><a class="brand" href="/">Zwicky</a><label class="language-picker"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">${languageLabel}</span><select id="language-select" aria-label="${languageLabel}"><option value="en"${language === 'en' ? ' selected' : ''}>English</option><option value="de"${language === 'de' ? ' selected' : ''}>Deutsch</option></select></label></header><main><h1>${title}</h1><h2>${escapeHtml(job.title)}</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(output)}</pre></main><script>${languageScript}</script></body></html>`;
+      return reply(response, 200, html, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-${languageHash}'; base-uri 'none'; frame-ancestors 'none'` });
     }
     if (url.pathname === '/api/filings') {
       if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) return reply(response, 413, 'Request body not accepted.\n');
@@ -277,7 +282,7 @@ function createServer(options) {
         return reply(response, status, JSON.stringify({ error: message }), { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
       }
     }
-    if (url.pathname !== '/' || url.search) return reply(response, 404, 'Not found.\n');
+    if (!['/', '/index.html'].includes(url.pathname) || url.search) return reply(response, 404, 'Not found.\n');
     if (request.headers['transfer-encoding'] || (request.headers['content-length'] && request.headers['content-length'] !== '0')) {
       return reply(response, 413, 'Request body not accepted.\n');
     }

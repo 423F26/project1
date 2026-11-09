@@ -12,11 +12,13 @@
     header.shell { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 28px; margin-bottom: 32px; border-bottom: 1px solid var(--separator); }
     h1 { margin: 0 0 10px; font: 400 40px/1.15 Georgia, 'Times New Roman', serif; letter-spacing: -1px; }
     h1, h2, h3 { overflow-wrap: anywhere; }
+    h1 .home-brand { color: inherit; text-decoration: none; }
     p { margin: 0; }
     .subtitle, .meta, .feed-empty { color: var(--muted); font-size: 14px; }
     button { min-height: 44px; padding: 8px 20px; border: 1px solid var(--control); border-radius: 22px; background: #000; color: var(--text); font: inherit; cursor: pointer; }
-    .language-picker { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
-    .language-picker select { min-width: 116px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--control); border-radius: 22px; background: #000; color: var(--text); font: inherit; text-align: center; text-align-last: center; }
+    .language-picker { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
+    .language-picker::after { position: absolute; right: 14px; color: var(--muted); content: '⌄'; pointer-events: none; }
+    .language-picker select { width: 140px; min-height: 44px; padding: 8px 32px; appearance: none; border: 1px solid var(--control); border-radius: 22px; background: #000; color: var(--text); font: inherit; text-align: center; text-align-last: center; }
     button:hover { background: var(--surface); }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -25,9 +27,9 @@
     .search-card { padding: 0 0 28px; border: 0; border-radius: 0; background: transparent; }
     .search-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; }
     .search-heading { flex: 1; margin: 0; font-size: 20px; line-height: 1.35; font-weight: 500; }
-    .market { display: flex; flex-wrap: wrap; gap: 6px 16px; max-width: 330px; min-width: 0; margin: 0; padding: 0; border: 0; font-size: 14px; }
+    .market { display: grid; grid-template-columns: max-content; gap: 6px; width: max-content; max-width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; font-size: 14px; }
     .market legend { margin-bottom: 4px; color: var(--muted); }
-    .market-option { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 4px 10px; border: 1px solid var(--control); border-radius: 18px; cursor: pointer; }
+    .market-option { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--control); border-radius: 22px; white-space: nowrap; cursor: pointer; }
     .market-option:has(input:checked) { border-color: var(--accent); color: var(--accent); }
     .market-option input { margin: 0; accent-color: var(--accent); }
 
@@ -157,7 +159,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main" data-de="Zum Hauptinhalt">Skip to main content</a>
-  <header class="shell"><h1>Zwicky</h1><label class="language-picker"><span class="visually-hidden" data-de="Sprache">Language</span><select id="language-select" aria-label="Language" data-de-aria-label="Sprache"><option value="en">English</option><option value="de">Deutsch</option></select></label></header>
+  <header class="shell"><h1><a class="home-brand" href="index.html">Zwicky</a></h1><label class="language-picker"><span class="visually-hidden" data-de="Sprache">Language</span><select id="language-select" aria-label="Language" data-de-aria-label="Sprache"><option value="en">English</option><option value="de">Deutsch</option></select></label></header>
   <main id="main" class="shell" tabindex="-1">
   <section class="search-area" aria-label="Search controls" data-de-aria-label="Suchsteuerung"><form id="company-search-form" class="search-card">
     <div class="search-header"><h2 class="search-heading" data-de="Unternehmensberichte finden">Find company filings</h2>

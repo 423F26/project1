@@ -87,12 +87,12 @@ try {
     const target=new URL(location.href);target.searchParams.set('lang','de');location.replace(target.pathname+target.search);
   } else localStorage.setItem('pageLanguage',pageData.lang);
 } catch {}
-const languageLink=document.getElementById('language');
-const languageUrl=new URL(location.href);languageUrl.searchParams.set('lang',pageData.lang==='de'?'en':'de');languageLink.href=languageUrl.pathname+languageUrl.search;
+const languageSelect=document.getElementById('language-select');
+if(languageSelect){languageSelect.value=pageData.lang;languageSelect.addEventListener('change',()=>{const lang=languageSelect.value==='de'?'de':'en';try{localStorage.setItem('pageLanguage',lang)}catch{}const target=new URL(location.href);target.searchParams.set('lang',lang);if(typeof collectSelection==='function')target.searchParams.set('state',JSON.stringify(collectSelection()));location.assign(target.pathname+target.search+target.hash)});}
 ${script}
 
 `;
-  const html = `<!doctype html><html lang="${data.lang || 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zwicky | ${esc(title)}</title><style>${style}</style></head><body><a class="skip" href="#main">${data.lang === 'de' ? 'Zum Inhalt' : 'Skip to content'}</a><main id="main" tabindex="-1"><header class="page-header"><span class="product-name">Zwicky</span><a class="home-link" href="/">${data.lang === 'de' ? 'Startseite' : 'Home'}</a><a id="language" class="language-switch" href="?lang=${data.lang === 'de' ? 'en' : 'de'}"><span aria-hidden="true">${data.lang === 'de' ? '🇺🇸' : '🇩🇪'}</span> ${data.lang === 'de' ? 'English' : 'Deutsch'}</a></header>${body}</main><script type="module" data-cfasync="false">${inline}</script></body></html>`;
+  const html = `<!doctype html><html lang="${data.lang || 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zwicky | ${esc(title)}</title><style>${style}</style></head><body><a class="skip" href="#main">${data.lang === 'de' ? 'Zum Inhalt' : 'Skip to content'}</a><main id="main" tabindex="-1"><header class="page-header"><a class="product-name" href="/">Zwicky</a><label class="language-picker"><span class="visually-hidden">${data.lang === 'de' ? 'Sprache' : 'Language'}</span><select id="language-select" aria-label="${data.lang === 'de' ? 'Sprache' : 'Language'}"><option value="en"${data.lang === 'en' ? ' selected' : ''}>English</option><option value="de"${data.lang === 'de' ? ' selected' : ''}>Deutsch</option></select></label></header>${body}</main><script type="module" data-cfasync="false">${inline}</script></body></html>`;
   return {
     html,
     csp: `default-src 'none'; style-src 'unsafe-inline'; script-src 'self' 'sha256-${createHash('sha256').update(inline).digest('base64')}'; connect-src 'self'; worker-src 'self'; img-src 'self' data:; frame-src 'self'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`,

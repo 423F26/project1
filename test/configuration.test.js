@@ -43,6 +43,8 @@ test('serves the HTML root and feed API with the configured request protections'
   for (const value of ['Zwicky', 'Find company filings', 'Recent Filings']) assert.match(success.body, new RegExp(value));
   for (const value of ['RSS source manager', 'WirtschaftsWoche Finanzen', 'Add RSS feed URL', 'Directional bias']) assert.doesNotMatch(success.body, new RegExp(value));
   assert.match(success.body, /<select id="language-select"/);
+  assert.match(success.body, /class="home-brand" href="index\.html"/);
+  assert.equal(request(server, { url: '/index.html' }).status, 200);
   assert.doesNotMatch(success.body, /name="topic"|Focus on a topic/);
   for (const type of ['current', 'ownership', 'registration', 'other']) assert.match(success.body, new RegExp(`value="${type}" data-market="US"`));
   assert.match(success.body, /<button id="company-search-submit" type="submit">Find filings<\/button>/);

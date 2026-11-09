@@ -16,10 +16,7 @@ function collectSelection() {
   };
 }
 
-for (const link of [
-  document.getElementById('language'),
-  ...document.querySelectorAll('[data-keep-selection]'),
-]) {
+for (const link of document.querySelectorAll('[data-keep-selection]')) {
   link.addEventListener('click', () => {
     const target = new URL(link.href, location.href);
     target.searchParams.set('state', JSON.stringify(collectSelection()));

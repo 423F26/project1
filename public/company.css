@@ -112,24 +112,36 @@ button:disabled {
   border-bottom: 1px solid var(--separator);
 }
 .product-name {
+  color: var(--text);
   font: 400 24px/1.2 Georgia, "Times New Roman", serif;
+  text-decoration: none;
 }
-.home-link {
+.language-picker { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
+.language-picker::after { position: absolute; right: 14px; color: var(--muted); content: '⌄'; pointer-events: none; }
+.language-picker select {
   display: inline-flex;
   align-items: center;
+  width: 140px;
   min-height: 44px;
-  padding: 8px 16px;
-  border: 1px solid var(--control);
-  border-radius: 8px;
-}
-.language-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 20px;
+  padding: 8px 32px;
+  appearance: none;
   border: 1px solid var(--control);
   border-radius: 999px;
+  background: #000;
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  text-align-last: center;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 article,
 section {

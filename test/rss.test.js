@@ -43,6 +43,7 @@ test('parses feed entries, persists and deduplicates across restarts, and escape
     assert.equal(store.recent({ now: '2026-09-30T14:00:00Z' }).length, 1);
     const html = renderFeed(store.recent({ now: '2026-09-30T14:00:00Z' }));
     assert.match(html, /SEC filing/);
+    assert.match(html, /data-de="Veröffentlicht">Published<\/span>: <time[^>]*>09-30-2026 <span data-de="um">at<\/span> 6:00 AM MDT<\/time> · <span data-de="Abgerufen um">Fetched at<\/span> <time[^>]*>7:00 AM MDT<\/time>/);
     assert.doesNotMatch(html, /<script>/);
     assert.doesNotMatch(html, /A &amp; B/);
     store.close();
