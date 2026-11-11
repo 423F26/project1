@@ -76,8 +76,8 @@ function renderFeed(items) {
     if (!group) { group = { company: name, reference, filings: [] }; companies.set(key, group); groups.push(group); }
     group.filings.push(item);
   }
-  const filingEntry = (item) => {
-    const label = item.form_type ? `${filingNames[item.form_type] ?? 'SEC filing'} (Form ${item.form_type})` : 'SEC filing';
+  const filingEntry = (item, title) => {
+    const label = title ?? (item.form_type ? `${filingNames[item.form_type] ?? 'SEC filing'} (Form ${item.form_type})` : 'SEC filing');
     const fetchedAt = item.first_fetched_at ? mountainTime.format(new Date(item.first_fetched_at)) : '';
     const published = item.published_at
       ? `<time datetime="${escapeHtml(item.published_at)}">${mountainDateNumeric.format(new Date(item.published_at)).replaceAll('/', '-')} <span data-de="um">at</span> ${escapeHtml(mountainTime.format(new Date(item.published_at)))}</time>`
@@ -88,6 +88,8 @@ function renderFeed(items) {
   return groups.map((group) => {
     if (group.item) {
       const item = group.item;
+      if (item.publisher === 'BaFin')
+        return `<article class="feed-item company-group" data-publisher="BaFin"><h3 class="company-heading">BaFin</h3>${filingEntry(item, item.title)}</article>`;
       const date = item.published_at ? `<time datetime="${escapeHtml(item.published_at)}">${escapeHtml(mountainDay(item.published_at))}</time>` : '';
       const heading = item.title;
       return `<article class="feed-item" data-publisher="${escapeHtml(item.publisher)}"><div class="meta"><span class="publisher">${escapeHtml(item.publisher)}</span>${date}</div><h3><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heading)}<span class="visually-hidden"> (opens in a new tab)</span></a></h3></article>`;
