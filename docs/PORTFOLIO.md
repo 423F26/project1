@@ -3,7 +3,7 @@
 **Course:** ESOF 423 — Group 1  
 **Semester:** Fall 2026  
 **Institution:** Montana State University  
-**Team members (alphabetical):** Charles Smith, Owen Sanford
+**Team members (alphabetical):** Charles Smith (chropic), Owen Sanford (oogwaysprophecy732)
 
 > Draft for team review. Before submitting, complete the marked team details and attach or link the original UML diagrams if available. The repository source is the program listing; this portfolio includes short code examples rather than copying the full project.
 
@@ -41,8 +41,8 @@ The product backlog assigned work by maintainer and tracked status, completion d
 
 | Team member | Primary contributions | Estimated share of team project time |
 | --- | --- | ---: |
-| Team member 1 | Webpage and repository setup; README; German toggle; RSS backend; UI update; bias-detection prototype; shared bias-detection research. | 53.4% |
-| Team member 2 | Web interface and demo; search-interface work; RSS filtering; shared bias-detection research. | 46.6% |
+| Team member 1 (Chropic)| Webpage and repository setup; README; German toggle; RSS backend; UI update; bias-detection prototype; shared bias-detection research. | 53.4% |
+| Team member 2 (oogwaysprophecy732)| Web interface and demo; search-interface work; RSS filtering; shared bias-detection research. | 46.6% |
 
 The shares use completed work points as a proxy for effort because the backlog does not provide a consistent measure of actual time. Completed solo tasks total 320 points for Team member 1 and 275 for Team member 2. The shared 75-point research task is split equally, giving 357.5 of 670 completed points (53.4%) and 312.5 of 670 (46.6%), respectively. This is an estimate, not a timesheet-based allocation.
 
